@@ -1,0 +1,31 @@
+{
+  "src":"./my-llvm-src",
+  "repo":
+  {
+    "llvm":{
+      "url":"https://github.com/llvm-mirror/llvm.git",
+      "branch":"master"
+    },
+    "clang":{
+      "url":"https://github.com/llvm-mirror/clang.git",
+      "branch":"master"
+    }
+  },
+  "builds":[
+    {
+      "type":"release",
+      "path":"./my-llvm-release",
+      "sharedlib":false
+    },
+    {
+      "type":"relassert",
+      "path":"./my-llvm-releaseassert",
+      "sharedlib":true
+    },
+    {
+      "type":"debug",
+      "path":"./my-llvm-debug",
+      "sharedlib":true
+    }
+  ]
+}
