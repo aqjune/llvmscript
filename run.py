@@ -31,7 +31,40 @@ def checkLLVMConfigForBuild(js, buildopt):
       found = True
   assert(found)
 
+def checkLNTConfigForClone(js):
+  # Destination of lnt/test-suite/virtualenv should exist
+  assert ("lnt-dir" in js)
+  assert ("test-suite-dir" in js)
+  assert ("virtualenv-dir" in js)
+  # Should have cloninig repo info
+  assert ("repo" in js)
+  # LLVM repo should exist
+  assert ("lnt" in js["repo"])
+  assert ("test-suite" in js["repo"])
+  for i in js["repo"]:
+    assert ("url" in js["repo"][i])
 
+
+# Starts git clone.
+# branch can be None.
+# depth can be None or -1 (meaning that it is infinite)
+def startGitClone(repo, dest, branch, depth):
+  try:
+    os.makedirs(dest)
+    cmds = ["git", "clone", repo, dest]
+    if branch != None:
+      cmds = cmds + ["--branch", branch]
+    if depth != None and depth != -1:
+      cmds = cmds + ["--depth", str(depth)]
+
+    return Popen(cmds)
+  except OSError as e:
+    print ("Cannot create directory '{0}'.".format(dest))
+    exit(1)
+
+
+
+# Main object.
 class LLVMScript(object):
 
   def __init__(self):
@@ -39,13 +72,14 @@ class LLVMScript(object):
       usage = '''python3 run.py <command> [<args>]
 
 Commands:
-  clone    Clone LLVM into local
-  build    Build LLVM
-  lnt      Initialize / Run LLVM Nightly Tests
+  clone     Clone LLVM into local
+  build     Build LLVM
+  lntclone  Clone & initialize Run LLVM Nightly Tests
   spec2017 Run SPEC CPU2017
 
 Type 'python3 run.py <command> help' to get details
 ''')
+
     parser.add_argument('command', help='clone/build/lnt/spec2017')
     args = parser.parse_args(sys.argv[1:2])
     if not hasattr(self, args.command):
@@ -53,6 +87,7 @@ Type 'python3 run.py <command> help' to get details
       parser.print_help()
       exit(1)
     getattr(self, args.command)()
+
 
   def clone(self):
     parser = argparse.ArgumentParser(
@@ -67,41 +102,25 @@ Type 'python3 run.py <command> help' to get details
     cfg = json.load(f)
     checkLLVMConfigForClone(cfg)
 
-    # Make git clone commands.
-    def make_cmd (cfg, name):
-      cmd = ["git",
-             "clone",
-             cfg["repo"][name]["url"],
-             cfg["src"] + "/" + name]
+    def _callGitClone (cfg, name):
+      repo = cfg["repo"][name]["url"]
+      dest = cfg["src"] + "/" + name
+      branch = None
+      depth = None
 
       if "branch" in cfg["repo"][name]:
-        cmd.append("--branch")
-        cmd.append(cfg["repo"][name]["branch"])
+        branch = cfg["repo"][name]["branch"]
 
       if args.depth:
-        if args.depth != -1:
-          cmd.append("--depth")
-          cmd.append(str(args.depth))
+        depth = args.depth
 
-      return cmd
+      return startGitClone(repo, dest, branch, depth)
 
-    cmds = []
-    cmds.append(make_cmd(cfg, "llvm"))
-    if "clang" in cfg["repo"]:
-      cmds.append(make_cmd(cfg, "clang"))
-
-    # git clone LLVM.
-    try:
-      os.makedirs(cfg["src"])
-      pipes = []
-      for cmd in cmds:
-        print (" ".join(cmd))
-        pipes.append(Popen(cmd))
-      for p in pipes:
-        p.wait()
-    except OSError as e:
-      print ("Cannot create directory '{0}'.".format(cfg["src"]))
-      exit(1)
+    pipes = []
+    pipes.append(_callGitClone(cfg, "llvm"))
+    pipes.append(_callGitClone(cfg, "clang"))
+    for p in pipes:
+      p.wait()
 
 
   def build(self):
@@ -153,8 +172,6 @@ Type 'python3 run.py <command> help' to get details
     if "clang" in cfg["repo"]:
       cmd.append("-DLLVM_EXTERNAL_CLANG_SOURCE_DIR=" + cfg["src"] + "/clang")
 
-    print(cmd)
-
     p = Popen(cmd)
     p.wait()
 
@@ -166,6 +183,49 @@ Type 'python3 run.py <command> help' to get details
     p = Popen(cmd)
     p.wait()
 
+
+  def lntclone(self):
+    parser = argparse.ArgumentParser(
+        description = 'Arguments for build command')
+    parser.add_argument('--cfg',
+        help='config path for LLVM Nightly Tests (json file)',
+        action='store',
+        required=True)
+    args = parser.parse_args(sys.argv[2:])
+
+    cfgpath = args.cfg
+    f = open(cfgpath)
+    cfg = json.load(f)
+    checkLNTConfigForClone(cfg);
+
+    def _callGitClone(cfg, name):
+      repo = cfg["repo"][name]["url"]
+      dest = cfg[name + "-dir"]
+      branch = None
+
+      if "branch" in cfg["repo"][name]:
+        branch = cfg["repo"][name]["branch"]
+
+      startGitClone(repo, dest, branch, None)
+
+    pipes = []
+    pipes.append(_callGitClone(cfg, "lnt"))
+    pipes.append(_callGitClone(cfg, "test-suite"))
+    for p in pipes:
+      p.wait()
+
+    # Now, create virtualenv.
+    venv_dir = cfg["virtualenv-dir"]
+    p = Popen(["virtualenv", venv_dir])
+    p.wait()
+
+    # Install LNT at virtualenv.
+    p = Popen([venv_dir + "/bin/pip", "install", "six==1.10.0")
+    p.wait()
+    p = Popen([venv_dir + "/bin/pip", "install", "typing")
+    p.wait()
+    p = Popen([venv_dir + "/bin/python", cfg["lnt-dir"] + "/setup.py", "install")
+    p.wait()
 
 if __name__ == '__main__':
   LLVMScript()

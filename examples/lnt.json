@@ -1,0 +1,16 @@
+{
+  "lnt-dir":"~/my-lnt",
+  "test-suite-dir":"~/my-testsuite",
+  "virtualenv-dir":"~/my-env",
+  "repo":
+  {
+    "lnt":{
+      "url":"https://github.com/llvm-mirror/lnt.git",
+      "branch":"master"
+    },
+    "test-suite":{
+      "url":"https://github.com/llvm-mirror/test-suite.git",
+      "branch":"master"
+    }
+  }
+}
