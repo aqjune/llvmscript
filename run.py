@@ -116,6 +116,11 @@ Type 'python3 run.py <command> help' to get details
     cfgpath = args.cfg
     f = open(cfgpath)
     cfg = json.load(f)
+    
+    if args.build != "release" and args.build != "relassert" and args.build != "debug":
+      print ("Unknown build option: {}; should be release / relassert / debug.".format(args.build))
+      exit(1)
+
     checkLLVMConfigForBuild(cfg, args.build)
 
     options = None
