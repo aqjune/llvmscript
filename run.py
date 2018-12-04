@@ -130,6 +130,8 @@ Type 'python3 run.py <command> help' to get details
         required=True)
     parser.add_argument('--build', help='release/relassert/debug', action='store', required=True)
     parser.add_argument('--core', help='# of cores to use', nargs='?', const=1, type=int)
+    parser.add_argument('--target', help='targets, separated by comma (ex: opt,clang,llvm-as)',
+                        action='store')
     args = parser.parse_args(sys.argv[2:])
 
     cfgpath = args.cfg
@@ -177,8 +179,15 @@ Type 'python3 run.py <command> help' to get details
 
     # Now build
     cmd = ["cmake", "--build", "."]
+    addedArg = False
+    
+    if args.target:
+      cmd = cmd + ["--"] + args.target.split(',')
+      addedArg = True
+
     if args.core:
-      cmd = cmd + ["--", "-j{}".format(str(args.core))]
+      cmd = cmd + ([] if addedArg else ["--"]) + ["-j{}".format(str(args.core))]
+      addedArg = True
 
     p = Popen(cmd)
     p.wait()

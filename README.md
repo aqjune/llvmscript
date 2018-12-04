@@ -10,3 +10,7 @@ One-for-all python script for running experiment with LLVM
 `python3 run.py build --cfg <.json file> --build <release/relassert/debug> --core <# of cores to use>`
 
 - Builds LLVM (as well as Clang)
+
+`python3 run.py lntclone --cfg <.json file>`
+
+- Clones & initializes LLVM Nightly Tests
