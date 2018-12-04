@@ -220,11 +220,11 @@ Type 'python3 run.py <command> help' to get details
     p.wait()
 
     # Install LNT at virtualenv.
-    p = Popen([venv_dir + "/bin/pip", "install", "six==1.10.0")
+    p = Popen([venv_dir + "/bin/pip", "install", "six==1.10.0"])
     p.wait()
-    p = Popen([venv_dir + "/bin/pip", "install", "typing")
+    p = Popen([venv_dir + "/bin/pip", "install", "typing"])
     p.wait()
-    p = Popen([venv_dir + "/bin/python", cfg["lnt-dir"] + "/setup.py", "install")
+    p = Popen([venv_dir + "/bin/python", cfg["lnt-dir"] + "/setup.py", "install"])
     p.wait()
 
 if __name__ == '__main__':
