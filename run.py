@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import os
 import argparse
 import sys
@@ -57,7 +58,9 @@ def startGitClone(repo, dest, branch, depth):
     if depth != None and depth != -1:
       cmds = cmds + ["--depth", str(depth)]
 
-    return Popen(cmds)
+    p = Popen(cmds)
+    assert(p != None)
+    return p
   except OSError as e:
     print ("Cannot create directory '{0}'.".format(dest))
     exit(1)
@@ -74,19 +77,31 @@ class LLVMScript(object):
 Commands:
   clone     Clone LLVM into local
   build     Build LLVM
-  lntclone  Clone & initialize Run LLVM Nightly Tests
-  spec2017 Run SPEC CPU2017
+  lntclone  Clone & initialize LLVM Nightly Tests
+  lnt       Run LLVM Nightly Tests
+  spec2017  Run SPEC CPU2017
 
 Type 'python3 run.py <command> help' to get details
 ''')
 
-    parser.add_argument('command', help='clone/build/lnt/spec2017')
+    parser.add_argument('command', help='clone/build/lntclone/spec2017')
     args = parser.parse_args(sys.argv[1:2])
     if not hasattr(self, args.command):
       print ("Unrecognized command")
       parser.print_help()
       exit(1)
     getattr(self, args.command)()
+
+
+  def _getBuildOption(self, cfg, build):
+    options = None
+    for i in cfg["builds"]:
+      if i["type"] == build:
+        options = i
+        break
+
+    assert(options != None)
+    return options
 
 
   def clone(self):
@@ -144,13 +159,8 @@ Type 'python3 run.py <command> help' to get details
 
     checkLLVMConfigForBuild(cfg, args.build)
 
-    options = None
-    for i in cfg["builds"]:
-      if i["type"] == args.build:
-        options = i
-        break
+    options = self._getBuildOption(cfg, args.build)
 
-    assert(options != None)
     if not os.path.exists(options["path"]):
       try:
         os.makedirs(options["path"])
@@ -215,7 +225,7 @@ Type 'python3 run.py <command> help' to get details
       if "branch" in cfg["repo"][name]:
         branch = cfg["repo"][name]["branch"]
 
-      startGitClone(repo, dest, branch, None)
+      return startGitClone(repo, dest, branch, None)
 
     pipes = []
     pipes.append(_callGitClone(cfg, "lnt"))
@@ -225,7 +235,7 @@ Type 'python3 run.py <command> help' to get details
 
     # Now, create virtualenv.
     venv_dir = cfg["virtualenv-dir"]
-    p = Popen(["virtualenv", venv_dir])
+    p = Popen(["virtualenv2", venv_dir])
     p.wait()
 
     # Install LNT at virtualenv.
@@ -233,7 +243,41 @@ Type 'python3 run.py <command> help' to get details
     p.wait()
     p = Popen([venv_dir + "/bin/pip", "install", "typing"])
     p.wait()
+    # Uses "install" option - the difference between "install" and "develop" is that
+    # using "develop" allows the changes in the LNT sources to be immediately
+    # propagated to the installed directory.
     p = Popen([venv_dir + "/bin/python", cfg["lnt-dir"] + "/setup.py", "install"])
+    p.wait()
+
+
+  def lnt(self):
+    parser = argparse.ArgumentParser(
+        description = 'Arguments for lnt command')
+    parser.add_argument('--cfg', help='config path for LLVM (json file)', action='store',
+        required=True)
+    parser.add_argument('--lntcfg', help='config path for LNT (json file)', action='store',
+        required=True)
+    parser.add_argument('--runcfg', help='config path for LNT run (json file)', action='store',
+        required=True)
+    args = parser.parse_args(sys.argv[2:])
+
+    cfg = json.load(open(args.cfg))
+    lntcfg = json.load(open(args.lntcfg))
+    runcfg = json.load(open(args.runcfg))
+
+    buildopt = runcfg["buildopt"]
+    assert(buildopt == "relassert" or buildopt == "release" or buildopt == "debug")
+    clangdir = self._getBuildOption(cfg, buildopt)["path"]
+
+    cmds = [lntcfg["virtualenv-dir"] + "/bin/lnt",
+            "runtest",
+            "nt",
+            "--sandbox", lntcfg["virtualenv-dir"],
+            "--cc", clangdir + "/bin/clang",
+            "--cxx", clangdir + "/bin/clang++",
+            "--test-suite", lntcfg["test-suite-dir"],
+            "-j", str(runcfg["core"])]
+    p = Popen(cmds)
     p.wait()
 
 if __name__ == '__main__':

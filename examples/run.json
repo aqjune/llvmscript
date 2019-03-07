@@ -1,0 +1,5 @@
+{
+  "core":12,
+  "buildopt":"relassert",
+  "benchmark":false
+}
