@@ -275,8 +275,19 @@ Type 'python3 run.py <command> help' to get details
             "--sandbox", lntcfg["virtualenv-dir"],
             "--cc", clangdir + "/bin/clang",
             "--cxx", clangdir + "/bin/clang++",
-            "--test-suite", lntcfg["test-suite-dir"],
-            "-j", str(runcfg["core"])]
+            "--test-suite", lntcfg["test-suite-dir"]]
+
+    if runcfg["benchmark"] == True:
+      if runcfg["threads"] != 1:
+        print("Warning: benchmark is set, but --threads is not 1!")
+      cmds = cmds + ["--benchmarking-only", "--use-perf", "1",
+                     "--make-param", "\"RUNUNDER=taskset -c 1\""]
+      cmds = cmds + ["--multisample", "5"]
+    cmds = cmds + ["--threads", str(runcfg["threads"])]
+    cmds = cmds + ["--build-threads", str(runcfg["build-threads"])]
+
+    print(cmds)
+
     p = Popen(cmds)
     p.wait()
 

@@ -1,5 +1,6 @@
 {
-  "core":12,
+  "threads":12,
+  "build-threads":12,
   "buildopt":"relassert",
   "benchmark":false
 }
