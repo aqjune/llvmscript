@@ -133,6 +133,8 @@ Type 'python3 run.py <command> help' to get details
     pipes = []
     pipes.append(_callGitClone(cfg, "llvm"))
     pipes.append(_callGitClone(cfg, "clang"))
+    if "compiler-rt" in cfg["repo"]:
+      pipes.append(_callGitClone(cfg, "compiler-rt"))
     for p in pipes:
       p.wait()
 
