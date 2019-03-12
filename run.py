@@ -77,9 +77,8 @@ class LLVMScript(object):
 Commands:
   clone     Clone LLVM into local
   build     Build LLVM
-  lntclone  Clone & initialize LLVM Nightly Tests
-  lnt       Run LLVM Nightly Tests
-  spec2017  Run SPEC CPU2017
+  testsuite Clone & initialize test-suite and lnt
+  run       Run test-suite (using cmake)
 
 Type 'python3 run.py <command> help' to get details
 ''')
@@ -181,8 +180,13 @@ Type 'python3 run.py <command> help' to get details
     if options["sharedlib"]:
       cmd.append("-DBUILD_SHARED_LIBS=1")
 
+    externals = []
     if "clang" in cfg["repo"]:
-      cmd.append("-DLLVM_EXTERNAL_CLANG_SOURCE_DIR=" + cfg["src"] + "/clang")
+      externals = externals + ["clang"]
+    if "compiler-rt" in cfg["repo"]:
+      externals = externals + ["compiler-rt"]
+    if len(external) != 0:
+      cmd.append("-DLLVM_ENABLE_PROJECTS=\"%s\"" % ";".join(externals))
 
     p = Popen(cmd)
     p.wait()
@@ -280,7 +284,7 @@ Type 'python3 run.py <command> help' to get details
     if runcfg["benchmark"] == True:
       if runcfg["threads"] != 1:
         print("Warning: benchmark is set, but --threads is not 1!")
-      cmds = cmds + ["--benchmarking-only", "--use-perf", "1",
+      cmds = cmds + ["--benchmarking-only", "--use-perf", "time",
                      "--make-param", "\"RUNUNDER=taskset -c 1\""]
       cmds = cmds + ["--multisample", "5"]
     cmds = cmds + ["--threads", str(runcfg["threads"])]

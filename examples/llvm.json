@@ -9,6 +9,10 @@
     "clang":{
       "url":"https://github.com/llvm-mirror/clang.git",
       "branch":"master"
+    },
+    "compiler-rt":{
+      "url":"https://github.com/llvm-mirror/compiler-rt.git",
+      "branch":"master"
     }
   },
   "builds":[
