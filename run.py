@@ -206,8 +206,8 @@ Type 'python3 run.py <command> help' to get details
       externals = externals + ["clang"]
     if "compiler-rt" in cfg["repo"]:
       externals = externals + ["compiler-rt"]
-    if len(external) != 0:
-      cmd.append("-DLLVM_ENABLE_PROJECTS=\"%s\"" % ";".join(externals))
+    if len(externals) != 0:
+      cmd.append("-DLLVM_ENABLE_PROJECTS=%s" % ";".join(externals))
 
     p = Popen(cmd)
     p.wait()
