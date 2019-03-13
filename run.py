@@ -4,6 +4,7 @@ import argparse
 import sys
 import json
 import uuid
+import datetime
 from subprocess import Popen
 
 
@@ -78,7 +79,8 @@ Commands:
   clone     Clone LLVM into local
   build     Build LLVM
   testsuite Clone & initialize test-suite and lnt
-  run       Run test-suite (using cmake)
+  test      Run test-suite using cmake
+  lnt       Run test-suite using lnt
 
 Type 'python3 run.py <command> help' to get details
 ''')
@@ -103,11 +105,31 @@ Type 'python3 run.py <command> help' to get details
     return options
 
 
-  def clone(self):
+  def _newParser(self, cmd, llvm=False, testsuite=False, run=False):
     parser = argparse.ArgumentParser(
-        description = 'Arguments for clone command')
-    parser.add_argument('--cfg', help='config path for LLVM (json file)', action='store',
-        required=True)
+        description = 'Arguments for %s command' % cmd)
+
+    multi_cfg = False
+    if len(list(filter((lambda x: x), [llvm, testsuite, run]))) > 1:
+      multi_cfg = True
+
+    if llvm:
+      parser.add_argument('--cfg', help='config path for LLVM (json file)', action='store',
+          required=True)
+
+    if testsuite:
+      parser.add_argument('--' + ("test" if multi_cfg else "") + 'cfg',
+          help='config path for test-suite (json file)', action='store', required=True)
+
+    if run:
+      parser.add_argument('--' + ("run" if multi_cfg else "") + 'cfg',
+          help='config path for run (json file)', action='store', required=True)
+
+    return parser
+
+
+  def clone(self):
+    parser = self._newParser("clone", llvm=True)
     parser.add_argument('--depth', help='commit depth to clone (-1 means inf)', nargs='?', const=-1, type=int)
     args = parser.parse_args(sys.argv[2:])
 
@@ -140,10 +162,7 @@ Type 'python3 run.py <command> help' to get details
 
 
   def build(self):
-    parser = argparse.ArgumentParser(
-        description = 'Arguments for build command')
-    parser.add_argument('--cfg', help='config path for LLVM (json file)', action='store',
-        required=True)
+    parser = self._newParser("build", llvm=True)
     parser.add_argument('--build', help='release/relassert/debug', action='store', required=True)
     parser.add_argument('--core', help='# of cores to use', nargs='?', const=1, type=int)
     parser.add_argument('--target', help='targets, separated by comma (ex: opt,clang,llvm-as)',
@@ -209,13 +228,8 @@ Type 'python3 run.py <command> help' to get details
     p.wait()
 
 
-  def lntclone(self):
-    parser = argparse.ArgumentParser(
-        description = 'Arguments for build command')
-    parser.add_argument('--cfg',
-        help='config path for LLVM Nightly Tests (json file)',
-        action='store',
-        required=True)
+  def testsuite(self):
+    parser = self._newParser("testsuite", testsuite=True)
     args = parser.parse_args(sys.argv[2:])
 
     cfgpath = args.cfg
@@ -249,6 +263,8 @@ Type 'python3 run.py <command> help' to get details
     p.wait()
     p = Popen([venv_dir + "/bin/pip", "install", "typing"])
     p.wait()
+    p = Popen([venv_dir + "/bin/pip", "install", "pandas"])
+    p.wait()
     # Uses "install" option - the difference between "install" and "develop" is that
     # using "develop" allows the changes in the LNT sources to be immediately
     # propagated to the installed directory.
@@ -256,32 +272,74 @@ Type 'python3 run.py <command> help' to get details
     p.wait()
 
 
-  def lnt(self):
-    parser = argparse.ArgumentParser(
-        description = 'Arguments for lnt command')
-    parser.add_argument('--cfg', help='config path for LLVM (json file)', action='store',
-        required=True)
-    parser.add_argument('--lntcfg', help='config path for LNT (json file)', action='store',
-        required=True)
-    parser.add_argument('--runcfg', help='config path for LNT run (json file)', action='store',
-        required=True)
+  def test(self):
+    parser = self._newParser("test", llvm=True, testsuite=True, run=True)
     args = parser.parse_args(sys.argv[2:])
 
     cfg = json.load(open(args.cfg))
-    lntcfg = json.load(open(args.lntcfg))
+    testcfg = json.load(open(args.testcfg))
+    runcfg = json.load(open(args.runcfg))
+
+    strnow = datetime.datetime.now().strftime("%m_%d_%H_%M_%S")
+    orgpath = testcfg["test-suite-dir"]
+    while orgpath[-1] == '/':
+      orgpath = orgdir[:-1]
+
+    newpath = "%s-%s-%s-%s-%s" % (orgpath,
+                                  cfg["repo"]["llvm"]["branch"],
+                                  cfg["repo"]["clang"]["branch"],
+                                  runcfg["buildopt"], strnow)
+    llvmdir = self._getBuildOption(cfg, runcfg["buildopt"])["path"]
+    clang = "%s/bin/clang" % llvmdir
+    clangpp = clang + "++"
+    assert(not os.path.exists(newpath))
+
+    os.makedirs(newpath)
+    cmakeopt = ["cmake", "-DCMAKE_C_COMPILER=%s" % clang,
+                         "-DCMAKE_CXX_COMPILER=%s" % clangpp,
+                         "-C%s/cmake/caches/O3.cmake" % testcfg["test-suite-dir"]]
+    if runcfg["benchmark"]:
+      cmakeopt = cmakeopt + ["-DTEST_SUITE_BENCHMARKING_ONLY=On", "-DTEST_SUITE_RUN_UNDER=\"taskset -c 1\""]
+    cmakeopt.append(testcfg["test-suite-dir"])
+
+    p = Popen(cmakeopt, cwd=newpath)
+    p.wait()
+
+    makeopt = ["make"]
+    if runcfg["benchmark"] == False:
+      makeopt.append("-j")
+    p = Popen(makeopt, cwd=newpath)
+    p.wait()
+
+    corecnt = runcfg["threads"]
+    if runcfg["benchmark"] == True:
+      if runcfg["threads"] != 1:
+        print("Warning: benchmark is set, but --threads is not 1!")
+
+    p = popen(["%s/bin/llvm-lit" % llvmdir,
+               "-j", str(corecnt), "-o", "results.json"], cwd=newpath)
+    p.wait()
+
+
+  def lnt(self):
+    parser = self._newParser("lnt", llvm=True, testsuite=True, run=True)
+    args = parser.parse_args(sys.argv[2:])
+
+    cfg = json.load(open(args.cfg))
+    testcfg = json.load(open(args.testcfg))
     runcfg = json.load(open(args.runcfg))
 
     buildopt = runcfg["buildopt"]
     assert(buildopt == "relassert" or buildopt == "release" or buildopt == "debug")
     clangdir = self._getBuildOption(cfg, buildopt)["path"]
 
-    cmds = [lntcfg["virtualenv-dir"] + "/bin/lnt",
+    cmds = [testcfg["virtualenv-dir"] + "/bin/lnt",
             "runtest",
             "nt",
-            "--sandbox", lntcfg["virtualenv-dir"],
+            "--sandbox", testcfg["virtualenv-dir"],
             "--cc", clangdir + "/bin/clang",
             "--cxx", clangdir + "/bin/clang++",
-            "--test-suite", lntcfg["test-suite-dir"]]
+            "--test-suite", testcfg["test-suite-dir"]]
 
     if runcfg["benchmark"] == True:
       if runcfg["threads"] != 1:
@@ -296,6 +354,7 @@ Type 'python3 run.py <command> help' to get details
 
     p = Popen(cmds)
     p.wait()
+
 
 if __name__ == '__main__':
   LLVMScript()
