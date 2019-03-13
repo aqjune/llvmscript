@@ -285,10 +285,14 @@ Type 'python3 run.py <command> help' to get details
     while orgpath[-1] == '/':
       orgpath = orgdir[:-1]
 
-    newpath = "%s-%s-%s-%s-%s" % (orgpath,
-                                  cfg["repo"]["llvm"]["branch"],
-                                  cfg["repo"]["clang"]["branch"],
-                                  runcfg["buildopt"], strnow)
+    #newpath = "%s-%s-%s-%s-%s" % (orgpath,
+    #                              cfg["repo"]["llvm"]["branch"],
+    #                              cfg["repo"]["clang"]["branch"],
+    #                              runcfg["buildopt"], strnow)
+    newpath = "%s-%s-%s-%s" % (orgpath,
+                               cfg["repo"]["llvm"]["branch"],
+                               cfg["repo"]["clang"]["branch"],
+                               runcfg["buildopt"])
     llvmdir = self._getBuildOption(cfg, runcfg["buildopt"])["path"]
     clang = "%s/bin/clang" % llvmdir
     clangpp = clang + "++"
@@ -317,7 +321,7 @@ Type 'python3 run.py <command> help' to get details
         print("Warning: benchmark is set, but --threads is not 1!")
 
     p = Popen(["%s/bin/llvm-lit" % llvmdir,
-               "-j", str(corecnt), "-o", "results.json"], cwd=newpath)
+               "-j", str(corecnt), "-o", "results.json", "."], cwd=newpath)
     p.wait()
 
 
