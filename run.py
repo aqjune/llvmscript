@@ -316,7 +316,7 @@ Type 'python3 run.py <command> help' to get details
       if runcfg["threads"] != 1:
         print("Warning: benchmark is set, but --threads is not 1!")
 
-    p = popen(["%s/bin/llvm-lit" % llvmdir,
+    p = Popen(["%s/bin/llvm-lit" % llvmdir,
                "-j", str(corecnt), "-o", "results.json"], cwd=newpath)
     p.wait()
 
