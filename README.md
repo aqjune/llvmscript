@@ -3,6 +3,10 @@
 One-for-all python script for running experiment with LLVM 
 
 
+# Prerequisites
+
+- cset: required if `use_cset` is enabled. [NOPASSWD for sudo](https://askubuntu.com/questions/147241/execute-sudo-without-password) should be set as well
+
 # Commands
 
 `python3 run.py clone --cfg <.json file (ex: examples/llvm.json)>`
