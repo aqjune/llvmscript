@@ -2,5 +2,6 @@
   "threads":12,
   "build-threads":12,
   "buildopt":"relassert",
-  "benchmark":false
+  "benchmark":false,
+  "use_cset":false
 }

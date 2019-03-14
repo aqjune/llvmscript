@@ -303,8 +303,18 @@ Type 'python3 run.py <command> help' to get details
                          "-DCMAKE_CXX_COMPILER=%s" % clangpp,
                          "-C%s/cmake/caches/O3.cmake" % testcfg["test-suite-dir"]]
     if runcfg["benchmark"]:
-      cmakeopt = cmakeopt + ["-DTEST_SUITE_BENCHMARKING_ONLY=On", "-DTEST_SUITE_RUN_UNDER=taskset -c 1"]
+      cmakeopt = cmakeopt + ["-DTEST_SUITE_BENCHMARKING_ONLY=On"]
+      if runcfg["use_cset"]:
+        cmakeopt = cmakeopt + ["-DTEST_SUITE_RUN_UNDER=sudo cset shield --user=%s --exec" % runcfg["cset_username"]]
+      else:
+        cmakeopt = cmakeopt + ["-DTEST_SUITE_RUN_UNDER=taskset -c 1"]
     cmakeopt.append(testcfg["test-suite-dir"])
+
+    if runcfg["use_cset"]:
+      p = Popen("sudo cset shield --reset")
+      p.wait()
+      p = Popen("sudo cset shield -c 0")
+      p.wait()
 
     p = Popen(cmakeopt, cwd=newpath)
     p.wait()

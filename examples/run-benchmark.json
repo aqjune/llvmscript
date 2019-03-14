@@ -2,5 +2,7 @@
   "threads":1,
   "build-threads":1,
   "buildopt":"release",
-  "benchmark":true
+  "benchmark":true,
+  "use_cset":true,
+  "cset_username":"sflab"
 }
