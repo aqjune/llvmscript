@@ -303,7 +303,7 @@ Type 'python3 run.py <command> help' to get details
                          "-DCMAKE_CXX_COMPILER=%s" % clangpp,
                          "-C%s/cmake/caches/O3.cmake" % testcfg["test-suite-dir"]]
     if runcfg["benchmark"]:
-      cmakeopt = cmakeopt + ["-DTEST_SUITE_BENCHMARKING_ONLY=On", "-DTEST_SUITE_RUN_UNDER=\"taskset -c 1\""]
+      cmakeopt = cmakeopt + ["-DTEST_SUITE_BENCHMARKING_ONLY=On", "-DTEST_SUITE_RUN_UNDER=taskset -c 1"]
     cmakeopt.append(testcfg["test-suite-dir"])
 
     p = Popen(cmakeopt, cwd=newpath)
