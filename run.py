@@ -311,9 +311,9 @@ Type 'python3 run.py <command> help' to get details
     cmakeopt.append(testcfg["test-suite-dir"])
 
     if runcfg["use_cset"]:
-      p = Popen("sudo cset shield --reset")
+      p = Popen(["sudo", "cset", "shield", "--reset"])
       p.wait()
-      p = Popen("sudo cset shield -c 0")
+      p = Popen(["sudo", "cset", "shield", "-c", "0"])
       p.wait()
 
     p = Popen(cmakeopt, cwd=newpath)
