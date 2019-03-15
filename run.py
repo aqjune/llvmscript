@@ -305,7 +305,7 @@ Type 'python3 run.py <command> help' to get details
     if runcfg["benchmark"]:
       cmakeopt = cmakeopt + ["-DTEST_SUITE_BENCHMARKING_ONLY=On"]
       if runcfg["use_cset"]:
-        cmakeopt = cmakeopt + ["-DTEST_SUITE_RUN_UNDER=sudo cset shield --user=%s --exec" % runcfg["cset_username"]]
+        cmakeopt = cmakeopt + ["-DTEST_SUITE_RUN_UNDER=sudo cset shield --user=%s --exec -- " % runcfg["cset_username"]]
       else:
         cmakeopt = cmakeopt + ["-DTEST_SUITE_RUN_UNDER=taskset -c 1"]
     cmakeopt.append(testcfg["test-suite-dir"])
