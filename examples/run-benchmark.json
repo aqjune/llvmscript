@@ -3,6 +3,7 @@
   "build-threads":1,
   "buildopt":"release",
   "benchmark":true,
+  "rerun":false,
   "use_cset":true,
   "cset_username":"sflab"
 }

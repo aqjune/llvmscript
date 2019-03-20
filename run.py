@@ -285,30 +285,17 @@ Type 'python3 run.py <command> help' to get details
     while orgpath[-1] == '/':
       orgpath = orgdir[:-1]
 
-    #newpath = "%s-%s-%s-%s-%s" % (orgpath,
+    #testpath = "%s-%s-%s-%s-%s" % (orgpath,
     #                              cfg["repo"]["llvm"]["branch"],
     #                              cfg["repo"]["clang"]["branch"],
     #                              runcfg["buildopt"], strnow)
-    newpath = "%s-%s-%s-%s" % (orgpath,
+    testpath = "%s-%s-%s-%s" % (orgpath,
                                cfg["repo"]["llvm"]["branch"],
                                cfg["repo"]["clang"]["branch"],
                                runcfg["buildopt"])
     llvmdir = self._getBuildOption(cfg, runcfg["buildopt"])["path"]
     clang = "%s/bin/clang" % llvmdir
     clangpp = clang + "++"
-    assert(not os.path.exists(newpath))
-
-    os.makedirs(newpath)
-    cmakeopt = ["cmake", "-DCMAKE_C_COMPILER=%s" % clang,
-                         "-DCMAKE_CXX_COMPILER=%s" % clangpp,
-                         "-C%s/cmake/caches/O3.cmake" % testcfg["test-suite-dir"]]
-    if runcfg["benchmark"]:
-      cmakeopt = cmakeopt + ["-DTEST_SUITE_BENCHMARKING_ONLY=On"]
-      if runcfg["use_cset"]:
-        cmakeopt = cmakeopt + ["-DTEST_SUITE_RUN_UNDER=sudo cset shield --user=%s --exec -- " % runcfg["cset_username"]]
-      else:
-        cmakeopt = cmakeopt + ["-DTEST_SUITE_RUN_UNDER=taskset -c 1"]
-    cmakeopt.append(testcfg["test-suite-dir"])
 
     if runcfg["use_cset"]:
       p = Popen(["sudo", "cset", "shield", "--reset"])
@@ -316,22 +303,44 @@ Type 'python3 run.py <command> help' to get details
       p = Popen(["sudo", "cset", "shield", "-c", "0"])
       p.wait()
 
-    p = Popen(cmakeopt, cwd=newpath)
-    p.wait()
+    if runcfg["rerun"] == False:
+      assert(not os.path.exists(testpath))
 
-    makeopt = ["make"]
-    if runcfg["benchmark"] == False:
-      makeopt.append("-j")
-    p = Popen(makeopt, cwd=newpath)
-    p.wait()
+      os.makedirs(testpath)
+      cmakeopt = ["cmake", "-DCMAKE_C_COMPILER=%s" % clang,
+                           "-DCMAKE_CXX_COMPILER=%s" % clangpp,
+                           "-C%s/cmake/caches/O3.cmake" % testcfg["test-suite-dir"]]
+      if runcfg["benchmark"]:
+        cmakeopt = cmakeopt + ["-DTEST_SUITE_BENCHMARKING_ONLY=On"]
+        if runcfg["use_cset"]:
+          # cmakeopt = cmakeopt + ["-DTEST_SUITE_RUN_UNDER=sudo cset shield --user=%s --exec -- " % runcfg["cset_username"]]
+          pass # RunSafely.sh should be properly modified in advance
+        else:
+          cmakeopt = cmakeopt + ["-DTEST_SUITE_RUN_UNDER=taskset -c 1"]
+      cmakeopt.append(testcfg["test-suite-dir"])
+
+      p = Popen(cmakeopt, cwd=testpath)
+      p.wait()
+
+      makeopt = ["make"]
+      if runcfg["benchmark"] == False:
+        makeopt.append("-j")
+      p = Popen(makeopt, cwd=testpath)
+      p.wait()
 
     corecnt = runcfg["threads"]
     if runcfg["benchmark"] == True:
       if runcfg["threads"] != 1:
         print("Warning: benchmark is set, but --threads is not 1!")
 
+    resjson_num = 1
+    # The name of results.json
+    while os.path.exists("%s/results%d.json" % (testpath, resjson_num)):
+      resjson_num = resjson_num + 1
+
     p = Popen(["%s/bin/llvm-lit" % llvmdir,
-               "-j", str(corecnt), "-o", "results.json", "."], cwd=newpath)
+               "-j", str(corecnt), "-o", "results%d.json" % resjson_num, "."],
+               cwd=testpath)
     p.wait()
 
 
