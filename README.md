@@ -7,6 +7,7 @@ One-for-all python script for running experiment with LLVM
 
 - cset: required if `use_cset` is enabled. [NOPASSWD for sudo](https://askubuntu.com/questions/147241/execute-sudo-without-password) should be set as well
 
+
 # Commands
 
 `python3 run.py clone --cfg <.json file (ex: examples/llvm.json)>`
@@ -19,11 +20,16 @@ One-for-all python script for running experiment with LLVM
 - Builds LLVM (as well as Clang)
 
 
-`python3 run.py lntclone --cfg <.json file>`
+`python3 run.py testsuite --cfg <.json file>`
 
 - Clones & initializes LLVM Nightly Tests
 
 
-`python3 run.py lnt --cfg <.json file> --lntcfg <.json file> --runcfg <.json file>`
+`python3 run.py test --cfg <.json file> --testcfg <.json file> --runcfg <.json file>`
 
-- Runs LLVM Nightly Tests
+- Runs Test Suite with `cmake` command
+
+
+`python3 run.py lnt --cfg <.json file> --testcfg <.json file> --runcfg <.json file>`
+
+- Runs Test Suite with LLVM Nightly Tests script
