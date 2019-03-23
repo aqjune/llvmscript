@@ -46,6 +46,9 @@ def checkLNTConfigForClone(js):
   for i in js["repo"]:
     assert ("url" in js["repo"][i])
 
+def hasAndEquals(d, key, val):
+  return key in d and d[key] == val
+
 
 # Starts git clone.
 # branch can be None.
@@ -272,49 +275,61 @@ Type 'python3 run.py <command> help' to get details
     p.wait()
 
 
+  ##
+  # Run Test Suite using CMake
+  ##
   def test(self):
     parser = self._newParser("test", llvm=True, testsuite=True, run=True)
+    parser.add_argument('--runonly',
+        help='Run only (e.g. SingleSource/Benchmarks/Shootout)',
+        action='store', required=False)
     args = parser.parse_args(sys.argv[2:])
 
     cfg = json.load(open(args.cfg))
     testcfg = json.load(open(args.testcfg))
     runcfg = json.load(open(args.runcfg))
 
-    strnow = datetime.datetime.now().strftime("%m_%d_%H_%M_%S")
     orgpath = testcfg["test-suite-dir"]
     while orgpath[-1] == '/':
       orgpath = orgdir[:-1]
 
-    #testpath = "%s-%s-%s-%s-%s" % (orgpath,
-    #                              cfg["repo"]["llvm"]["branch"],
-    #                              cfg["repo"]["clang"]["branch"],
-    #                              runcfg["buildopt"], strnow)
-    testpath = "%s-%s-%s-%s" % (orgpath,
-                               cfg["repo"]["llvm"]["branch"],
-                               cfg["repo"]["clang"]["branch"],
-                               runcfg["buildopt"])
+    if hasAndEquals(runcfg, "emitasm", True):
+      testpath = "%s-%s-%s-%s-asm" % (orgpath,
+                                  cfg["repo"]["llvm"]["branch"],
+                                  cfg["repo"]["clang"]["branch"],
+                                  runcfg["buildopt"])
+    else:
+      strnow = datetime.datetime.now().strftime("%m_%d_%H_%M_%S")
+      testpath = "%s-%s-%s-%s-%s" % (orgpath,
+                                    cfg["repo"]["llvm"]["branch"],
+                                    cfg["repo"]["clang"]["branch"],
+                                    runcfg["buildopt"], strnow)
     llvmdir = self._getBuildOption(cfg, runcfg["buildopt"])["path"]
     clang = "%s/bin/clang" % llvmdir
     clangpp = clang + "++"
 
-    if runcfg["use_cset"]:
+    if hasAndEquals(runcfg, "use_cset", True):
       p = Popen(["sudo", "cset", "shield", "--reset"])
       p.wait()
       p = Popen(["sudo", "cset", "shield", "-c", "0"])
       p.wait()
 
-    if runcfg["rerun"] == False:
+    if not hasAndEquals(runcfg, "nobuild", True):
       assert(not os.path.exists(testpath))
 
       os.makedirs(testpath)
       cmakeopt = ["cmake", "-DCMAKE_C_COMPILER=%s" % clang,
                            "-DCMAKE_CXX_COMPILER=%s" % clangpp,
                            "-C%s/cmake/caches/O3.cmake" % testcfg["test-suite-dir"]]
+      if hasAndEquals(runcfg, "emitasm", True):
+        cmakeopt = cmakeopt + ["-DCMAKE_C_FLAGS=-save-temps"]
+
       if runcfg["benchmark"]:
         cmakeopt = cmakeopt + ["-DTEST_SUITE_BENCHMARKING_ONLY=On"]
         if runcfg["use_cset"]:
           # cmakeopt = cmakeopt + ["-DTEST_SUITE_RUN_UNDER=sudo cset shield --user=%s --exec -- " % runcfg["cset_username"]]
           pass # RunSafely.sh should be properly modified in advance
+               # TODO: Check RunSafely.sh at here
         else:
           cmakeopt = cmakeopt + ["-DTEST_SUITE_RUN_UNDER=taskset -c 1"]
       cmakeopt.append(testcfg["test-suite-dir"])
@@ -324,7 +339,13 @@ Type 'python3 run.py <command> help' to get details
 
       makeopt = ["make"]
       if runcfg["benchmark"] == False:
-        makeopt.append("-j")
+        makeopt.append("-j%d" % runcfg["build-threads"])
+        #makeopt.append("-j")
+
+      if hasAndEquals(runcfg, "emitasm", True):
+        # Ignore compile failures
+        makeopt.append("-i")
+
       p = Popen(makeopt, cwd=testpath)
       p.wait()
 
@@ -333,15 +354,29 @@ Type 'python3 run.py <command> help' to get details
       if runcfg["threads"] != 1:
         print("Warning: benchmark is set, but --threads is not 1!")
 
-    resjson_num = 1
-    # The name of results.json
-    while os.path.exists("%s/results%d.json" % (testpath, resjson_num)):
-      resjson_num = resjson_num + 1
+    itrcnt = 1
+    if "iteration" in runcfg:
+      itrcnt = runcfg["iteration"]
+    elif hasAndEquals(runcfg, "emitasm", True):
+      # No need to run llvm-lit
+      itrcnt = 0
 
-    p = Popen(["%s/bin/llvm-lit" % llvmdir,
-               "-j", str(corecnt), "-o", "results%d.json" % resjson_num, "."],
+    for itr in range(0, itrcnt):
+      resjson_num = 1
+      # The name of results.json
+      while os.path.exists("%s/results%d.json" % (testpath, resjson_num)):
+        resjson_num = resjson_num + 1
+
+      runonly = "."
+      if args.runonly:
+        runonly = args.runonly
+
+      p = Popen(["%s/bin/llvm-lit" % llvmdir,
+                 "-s", "-j", str(corecnt), "--no-progress-bar",
+                 "-o", "results%d.json" % resjson_num,
+                 runonly],
                cwd=testpath)
-    p.wait()
+      p.wait()
 
 
   def lnt(self):
@@ -369,7 +404,9 @@ Type 'python3 run.py <command> help' to get details
         print("Warning: benchmark is set, but --threads is not 1!")
       cmds = cmds + ["--benchmarking-only", "--use-perf", "time",
                      "--make-param", "\"RUNUNDER=taskset -c 1\""]
-      cmds = cmds + ["--multisample", "5"]
+      
+      if "iteration" in runcfg:
+        cmds = cmds + ["--multisample", runcfg["iteration"]]
     cmds = cmds + ["--threads", str(runcfg["threads"])]
     cmds = cmds + ["--build-threads", str(runcfg["build-threads"])]
 
