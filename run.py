@@ -5,6 +5,8 @@ import sys
 import json
 import uuid
 import datetime
+import re
+import subprocess
 from subprocess import Popen
 
 
@@ -46,6 +48,44 @@ def checkLNTConfigForClone(js):
   for i in js["repo"]:
     assert ("url" in js["repo"][i])
 
+def getBuildOption(cfg, build):
+  options = None
+  for i in cfg["builds"]:
+    if i["type"] == build:
+      options = i
+      break
+
+  assert(options != None)
+  return options
+
+def newParser(cmd, llvm=False, llvm2=False, testsuite=False, run=False):
+  parser = argparse.ArgumentParser(
+      description = 'Arguments for %s command' % cmd)
+
+  multi_cfg = False
+  if len(list(filter((lambda x: x), [llvm, testsuite, run]))) > 1:
+    multi_cfg = True
+
+  if llvm:
+    parser.add_argument('--cfg', help='config path for LLVM (json file)',
+        action='store', required=True)
+
+  if llvm2:
+    assert(llvm)
+    parser.add_argument('--cfg2', help='config path for LLVM (json file)',
+        action='store', required=True)
+
+  if testsuite:
+    parser.add_argument('--' + ("test" if multi_cfg else "") + 'cfg',
+        help='config path for test-suite (json file)', action='store',
+        required=True)
+
+  if run:
+    parser.add_argument('--' + ("run" if multi_cfg else "") + 'cfg',
+        help='config path for run (json file)', action='store', required=True)
+
+  return parser
+
 def hasAndEquals(d, key, val):
   return key in d and d[key] == val
 
@@ -83,6 +123,8 @@ Commands:
   build     Build LLVM
   testsuite Clone & initialize test-suite and lnt
   test      Run test-suite using cmake
+  diff      Compile test-suite with two compilers and compare outputs
+            (e.g. assembly)
   lnt       Run test-suite using lnt
 
 Type 'python3 run.py <command> help' to get details
@@ -97,42 +139,9 @@ Type 'python3 run.py <command> help' to get details
     getattr(self, args.command)()
 
 
-  def _getBuildOption(self, cfg, build):
-    options = None
-    for i in cfg["builds"]:
-      if i["type"] == build:
-        options = i
-        break
-
-    assert(options != None)
-    return options
-
-
-  def _newParser(self, cmd, llvm=False, testsuite=False, run=False):
-    parser = argparse.ArgumentParser(
-        description = 'Arguments for %s command' % cmd)
-
-    multi_cfg = False
-    if len(list(filter((lambda x: x), [llvm, testsuite, run]))) > 1:
-      multi_cfg = True
-
-    if llvm:
-      parser.add_argument('--cfg', help='config path for LLVM (json file)', action='store',
-          required=True)
-
-    if testsuite:
-      parser.add_argument('--' + ("test" if multi_cfg else "") + 'cfg',
-          help='config path for test-suite (json file)', action='store', required=True)
-
-    if run:
-      parser.add_argument('--' + ("run" if multi_cfg else "") + 'cfg',
-          help='config path for run (json file)', action='store', required=True)
-
-    return parser
-
 
   def clone(self):
-    parser = self._newParser("clone", llvm=True)
+    parser = newParser("clone", llvm=True)
     parser.add_argument('--depth', help='commit depth to clone (-1 means inf)', nargs='?', const=-1, type=int)
     args = parser.parse_args(sys.argv[2:])
 
@@ -165,7 +174,7 @@ Type 'python3 run.py <command> help' to get details
 
 
   def build(self):
-    parser = self._newParser("build", llvm=True)
+    parser = newParser("build", llvm=True)
     parser.add_argument('--build', help='release/relassert/debug', action='store', required=True)
     parser.add_argument('--core', help='# of cores to use', nargs='?', const=1, type=int)
     parser.add_argument('--target', help='targets, separated by comma (ex: opt,clang,llvm-as)',
@@ -182,7 +191,7 @@ Type 'python3 run.py <command> help' to get details
 
     checkLLVMConfigForBuild(cfg, args.build)
 
-    options = self._getBuildOption(cfg, args.build)
+    options = getBuildOption(cfg, args.build)
 
     if not os.path.exists(options["path"]):
       try:
@@ -231,8 +240,11 @@ Type 'python3 run.py <command> help' to get details
     p.wait()
 
 
+  ############################################################
+  #              cloning test-suite and lnt
+  ############################################################
   def testsuite(self):
-    parser = self._newParser("testsuite", testsuite=True)
+    parser = newParser("testsuite", testsuite=True)
     args = parser.parse_args(sys.argv[2:])
 
     cfgpath = args.cfg
@@ -275,20 +287,13 @@ Type 'python3 run.py <command> help' to get details
     p.wait()
 
 
-  ##
-  # Run Test Suite using CMake
-  ##
-  def test(self):
-    parser = self._newParser("test", llvm=True, testsuite=True, run=True)
-    parser.add_argument('--runonly',
-        help='Run only (e.g. SingleSource/Benchmarks/Shootout)',
-        action='store', required=False)
-    args = parser.parse_args(sys.argv[2:])
 
-    cfg = json.load(open(args.cfg))
-    testcfg = json.load(open(args.testcfg))
-    runcfg = json.load(open(args.runcfg))
+  ############################################################
+  #            Building test-suite using cmake
+  ############################################################
 
+  # Get a path of directory to build test-suite
+  def _getTestSuiteBuildPath(self, cfg, testcfg, runcfg):
     orgpath = testcfg["test-suite-dir"]
     while orgpath[-1] == '/':
       orgpath = orgdir[:-1]
@@ -304,83 +309,232 @@ Type 'python3 run.py <command> help' to get details
                                     cfg["repo"]["llvm"]["branch"],
                                     cfg["repo"]["clang"]["branch"],
                                     runcfg["buildopt"], strnow)
-    llvmdir = self._getBuildOption(cfg, runcfg["buildopt"])["path"]
+    return testpath
+
+  # Initialize cset
+  def _initCSet(self):
+    p = Popen(["sudo", "cset", "shield", "--reset"])
+    p.wait()
+    p = Popen(["sudo", "cset", "shield", "-c", "0"])
+    p.wait()
+
+  # Build test-suite by running cmake and make
+  def _buildTestSuiteUsingCMake(self, testpath, cfg, testcfg, runcfg):
+    assert(not os.path.exists(testpath))
+
+    llvmdir = getBuildOption(cfg, runcfg["buildopt"])["path"]
     clang = "%s/bin/clang" % llvmdir
     clangpp = clang + "++"
 
+    os.makedirs(testpath)
+    cmakeopt = ["cmake", "-DCMAKE_C_COMPILER=%s" % clang,
+                         "-DCMAKE_CXX_COMPILER=%s" % clangpp,
+                         "-C%s/cmake/caches/O3.cmake" % testcfg["test-suite-dir"]]
+    if hasAndEquals(runcfg, "emitasm", True):
+      cmakeopt = cmakeopt + ["-DCMAKE_C_FLAGS=-save-temps",
+                             "-DCMAKE_CXX_FLAGS=-save-temps"]
+
+
+    if runcfg["benchmark"]:
+      cmakeopt = cmakeopt + ["-DTEST_SUITE_BENCHMARKING_ONLY=On"]
+      if runcfg["use_cset"]:
+        # cmakeopt = cmakeopt + ["-DTEST_SUITE_RUN_UNDER=sudo cset shield --user=%s --exec -- " % runcfg["cset_username"]]
+        pass # RunSafely.sh should be properly modified in advance
+             # TODO: Check RunSafely.sh at here
+      else:
+        cmakeopt = cmakeopt + ["-DTEST_SUITE_RUN_UNDER=taskset -c 1"]
+    cmakeopt.append(testcfg["test-suite-dir"])
+
+    # Run cmake.
+    p = Popen(cmakeopt, cwd=testpath)
+    p.wait()
+
+
+    makeopt = ["make"]
+    if runcfg["benchmark"] == False:
+      makeopt.append("-j%d" % runcfg["build-threads"])
+      #makeopt.append("-j")
+
+    if hasAndEquals(runcfg, "emitasm", True):
+      # Ignore compile failures
+      makeopt.append("-i")
+
+    # Run make.
+    p = Popen(makeopt, cwd=testpath)
+    p.wait()
+
+  # Runs llvm-lit.
+  def _runLit(self, testpath, llvmdir, runonly, corecnt, noExecute=False):
+    resjson_num = 1
+    # The name of results.json
+    while os.path.exists("%s/results%d.json" % (testpath, resjson_num)):
+      resjson_num = resjson_num + 1
+
+    args = ["%s/bin/llvm-lit" % llvmdir,
+            "-s", # succinct
+            "-j", str(corecnt), "--no-progress-bar",
+            "-o", "results%d.json" % resjson_num]
+    if noExecute:
+      args.append("--no-execute")
+    
+    if runonly:
+      args.append(runonly)
+    else:
+      args.append(".")
+
+    p = Popen(args, cwd=testpath)
+    p.wait()
+
+
+  ##
+  # Run Test Suite using CMake
+  ##
+  def test(self):
+    parser = newParser("test", llvm=True, testsuite=True, run=True)
+    parser.add_argument('--runonly',
+        help='Run a specified test only (e.g. SingleSource/Benchmarks/Shootout)',
+        action='store', required=False)
+    args = parser.parse_args(sys.argv[2:])
+
+    cfg = json.load(open(args.cfg))
+    testcfg = json.load(open(args.testcfg))
+    runcfg = json.load(open(args.runcfg))
+
+
+    testpath = self._getTestSuiteBuildPath(cfg, testcfg, runcfg)
+
     if hasAndEquals(runcfg, "use_cset", True):
-      p = Popen(["sudo", "cset", "shield", "--reset"])
-      p.wait()
-      p = Popen(["sudo", "cset", "shield", "-c", "0"])
-      p.wait()
+      self._initCSet();
 
     if not hasAndEquals(runcfg, "nobuild", True):
-      assert(not os.path.exists(testpath))
+      self._buildTestSuiteUsingCMake(testpath, cfg, testcfg, runcfg)
 
-      os.makedirs(testpath)
-      cmakeopt = ["cmake", "-DCMAKE_C_COMPILER=%s" % clang,
-                           "-DCMAKE_CXX_COMPILER=%s" % clangpp,
-                           "-C%s/cmake/caches/O3.cmake" % testcfg["test-suite-dir"]]
-      if hasAndEquals(runcfg, "emitasm", True):
-        cmakeopt = cmakeopt + ["-DCMAKE_C_FLAGS=-save-temps"]
-
-      if runcfg["benchmark"]:
-        cmakeopt = cmakeopt + ["-DTEST_SUITE_BENCHMARKING_ONLY=On"]
-        if runcfg["use_cset"]:
-          # cmakeopt = cmakeopt + ["-DTEST_SUITE_RUN_UNDER=sudo cset shield --user=%s --exec -- " % runcfg["cset_username"]]
-          pass # RunSafely.sh should be properly modified in advance
-               # TODO: Check RunSafely.sh at here
-        else:
-          cmakeopt = cmakeopt + ["-DTEST_SUITE_RUN_UNDER=taskset -c 1"]
-      cmakeopt.append(testcfg["test-suite-dir"])
-
-      p = Popen(cmakeopt, cwd=testpath)
-      p.wait()
-
-      makeopt = ["make"]
-      if runcfg["benchmark"] == False:
-        makeopt.append("-j%d" % runcfg["build-threads"])
-        #makeopt.append("-j")
-
-      if hasAndEquals(runcfg, "emitasm", True):
-        # Ignore compile failures
-        makeopt.append("-i")
-
-      p = Popen(makeopt, cwd=testpath)
-      p.wait()
-
-    corecnt = runcfg["threads"]
-    if runcfg["benchmark"] == True:
-      if runcfg["threads"] != 1:
-        print("Warning: benchmark is set, but --threads is not 1!")
-
-    itrcnt = 1
-    if "iteration" in runcfg:
-      itrcnt = runcfg["iteration"]
-    elif hasAndEquals(runcfg, "emitasm", True):
+    # Of iterations to run
+    if hasAndEquals(runcfg, "emitasm", True):
       # No need to run llvm-lit
       itrcnt = 0
+    else:
+      itrcnt = runcfg["iteration"] if "iteration" in runcfg else 1
+
+    llvmdir = getBuildOption(cfg, runcfg["buildopt"])["path"]
+    corecnt = runcfg["threads"]
+    if runcfg["benchmark"] == True:
+      if "threads" in runcfg and runcfg["threads"] != 1:
+        print("Warning: benchmark is set, but --threads is not 1!")
 
     for itr in range(0, itrcnt):
-      resjson_num = 1
-      # The name of results.json
-      while os.path.exists("%s/results%d.json" % (testpath, resjson_num)):
-        resjson_num = resjson_num + 1
+      runonly = args.runonly if args.runonly else "."
+      self._runLit(testpath, llvmdir, runonly, corecnt)
 
-      runonly = "."
-      if args.runonly:
-        runonly = args.runonly
 
-      p = Popen(["%s/bin/llvm-lit" % llvmdir,
-                 "-s", "-j", str(corecnt), "--no-progress-bar",
-                 "-o", "results%d.json" % resjson_num,
-                 runonly],
-               cwd=testpath)
-      p.wait()
+  # Get the list of tests by running `llvm-lit --show-tests`
+  def _getTestList(self, testpath, llvmdir):
+    cmds = ["%s/bin/llvm-lit" % llvmdir, "--show-tests", testpath]
+    print(cmds)
+    p = Popen(cmds, cwd=testpath, stdout=subprocess.PIPE)
+    out, err = p.communicate()
+    out = out.decode("utf-8")
+    outs = list(filter((lambda x: len(x) > 0),
+                [s.strip() for s in out.split("\n")]))
 
+    assert(outs[0] == "-- Available Tests --")
+    outs = outs[1:]
+    for i in range(0, len(outs)):
+      prefix = "test-suite :: "
+      assert(outs[i].startswith(prefix)), "Should start with '%s': %s" % (prefix, outs[i])
+      outs[i] = outs[i][len(prefix):]
+    return outs
+
+  ##
+  # Compile Test Suite using two compilers and get diff of outputs
+  # (e.g. assembly)
+  ##
+  def diff(self):
+    parser = newParser("diff", llvm=True, llvm2=True, testsuite=True, run=True)
+    parser.add_argument('--diffonly', action="store_true",
+        help='Use already built test-suite to generate diff')
+    parser.add_argument('--out', help='Output file path', required=True,
+                        action='store')
+    args = parser.parse_args(sys.argv[2:])
+
+    cfg1 = json.load(open(args.cfg))
+    cfg2 = json.load(open(args.cfg2))
+    testcfg = json.load(open(args.testcfg))
+    runcfg = json.load(open(args.runcfg))
+
+    testpath1 = self._getTestSuiteBuildPath(cfg1, testcfg, runcfg)
+    testpath2 = self._getTestSuiteBuildPath(cfg2, testcfg, runcfg)
+
+    assert(hasAndEquals(runcfg, "emitasm", True))
+
+    if hasAndEquals(runcfg, "use_cset", True):
+      self._initCSet();
+
+    # Build test-suites if necessary
+    if not args.diffonly:
+      self._buildTestSuiteUsingCMake(testpath1, cfg1, testcfg, runcfg)
+      self._buildTestSuiteUsingCMake(testpath2, cfg2, testcfg, runcfg)
+
+    corecnt = runcfg["threads"]
+    llvmdir1 = getBuildOption(cfg1, runcfg["buildopt"])["path"]
+    llvmdir2 = getBuildOption(cfg2, runcfg["buildopt"])["path"]
+    self._runLit(testpath1, llvmdir1, None, corecnt, noExecute=True)
+    self._runLit(testpath2, llvmdir2, None, corecnt, noExecute=True)
+
+    tests = self._getTestList(testpath2, llvmdir2)
+    tests.sort()
+
+    # Diff all .s files
+    print(testpath1)
+    print(testpath2)
+    result1 = [os.path.join(os.path.relpath(dp, testpath1), f)
+               for dp, dn, filenames in os.walk(testpath1)
+               for f in filenames if os.path.splitext(f)[-1] == '.s']
+    result2 = [os.path.join(os.path.relpath(dp, testpath2), f)
+               for dp, dn, filenames in os.walk(testpath2)
+               for f in filenames if os.path.splitext(f)[-1] == '.s']
+    # The list of files should be same
+    assert(set(result1) == set(result2))
+    # TODO: relate 'tests' variable with results
+
+    outf = open(args.out, "w")
+
+    prune = lambda s: (s if s.find("#") == -1 else s[s.find("#"):]).strip()
+
+    for asmf in result1:
+      asm1 = open("%s/%s" % (testpath1, asmf), "r").readlines()
+      asm2 = open("%s/%s" % (testpath2, asmf), "r").readlines()
+
+      hasdiff = False
+      if len(asm1) != len(asm2):
+        hasdiff = True
+      else:
+        for i in range(0, len(asm1)):
+          a1 = prune(asm1[i])
+          a2 = prune(asm2[i])
+
+          if a1 == a2:
+            continue
+          elif a1.startswith(".ident") and a2.startswith(".ident"):
+            pattern = '.ident\s*\"clang version [0-9].[0-9].[0-9] \(((git\@github.com)|(https:\/\/github.com))[a-zA-Z0-9\)\( :/.-]*'
+            if re.match(pattern, a1) or re.match(pattern, a2):
+              continue
+            else:
+              hasdiff = True
+              break
+          else:
+            hasdiff = True
+            break
+
+      outf.write("%s %s\n" % (asmf, "YESDIFF" if hasdiff else "NODIFF"))
+
+
+  ############################################################
+  #           Building test-suite using LNT script
+  ############################################################
 
   def lnt(self):
-    parser = self._newParser("lnt", llvm=True, testsuite=True, run=True)
+    parser = newParser("lnt", llvm=True, testsuite=True, run=True)
     args = parser.parse_args(sys.argv[2:])
 
     cfg = json.load(open(args.cfg))
@@ -389,7 +543,7 @@ Type 'python3 run.py <command> help' to get details
 
     buildopt = runcfg["buildopt"]
     assert(buildopt == "relassert" or buildopt == "release" or buildopt == "debug")
-    clangdir = self._getBuildOption(cfg, buildopt)["path"]
+    clangdir = getBuildOption(cfg, buildopt)["path"]
 
     cmds = [testcfg["virtualenv-dir"] + "/bin/lnt",
             "runtest",
@@ -404,7 +558,7 @@ Type 'python3 run.py <command> help' to get details
         print("Warning: benchmark is set, but --threads is not 1!")
       cmds = cmds + ["--benchmarking-only", "--use-perf", "time",
                      "--make-param", "\"RUNUNDER=taskset -c 1\""]
-      
+
       if "iteration" in runcfg:
         cmds = cmds + ["--multisample", runcfg["iteration"]]
     cmds = cmds + ["--threads", str(runcfg["threads"])]
