@@ -39,4 +39,4 @@ WIP; don't use this.
 
 `python3 run.py spec --cfg examples/llvm.json --testcfg examples/testsuite.json --runcfg examples/run.json --speccfg examples/spec.json --testsuite --runonly CINT2017rate`
 
-- Runs SPEC CINT2017rate using test-suite
+- Runs SPEC CINT2017rate using tools contained in Test Suite
