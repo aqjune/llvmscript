@@ -320,7 +320,7 @@ Type 'python3 run.py <command> help' to get details
   def _buildTestSuiteUsingCMake(self, testpath, cfg, testcfg, runcfg):
     assert(not os.path.exists(testpath))
 
-    llvmdir = cfg["buildopt"][runcfg["buildopt"]]["path"]
+    llvmdir = cfg["builds"][runcfg["buildopt"]]["path"]
     clang = "%s/bin/clang" % llvmdir
     clangpp = clang + "++"
 
@@ -415,7 +415,7 @@ Type 'python3 run.py <command> help' to get details
     else:
       itrcnt = runcfg["iteration"] if "iteration" in runcfg else 1
 
-    llvmdir = cfg["bulids"][runcfg["buildopt"]]["path"]
+    llvmdir = cfg["builds"][runcfg["buildopt"]]["path"]
     corecnt = runcfg["threads"] if "threads" in runcfg else 1
     if runcfg["benchmark"] == True:
       if "threads" in runcfg and runcfg["threads"] != 1:
