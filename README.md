@@ -35,3 +35,8 @@ WIP; don't use this.
 `python3 run.py lnt --cfg <.json file> --testcfg <.json file> --runcfg <.json file>`
 
 - Runs Test Suite with LLVM Nightly Tests script
+
+
+`python3 run.py spec --cfg <.json file> --testcfg <.json file> --runcfg <.json file> --speccfg <.json file> --testsuite --runonly CINT2017rate`
+
+- Runs SPEC CINT2017rate using test-suite

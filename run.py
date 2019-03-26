@@ -52,32 +52,37 @@ def checkLNTConfigForClone(js, filename=None):
 
 
 def newParser(cmd, llvm=False, llvm2=False, testsuite=False, run=False,
-              isRequired=True):
+              spec=False, optionals=[]):
   parser = argparse.ArgumentParser(
       description = 'Arguments for %s command' % cmd)
 
   multi_cfg = False
-  if len(list(filter((lambda x: x), [llvm, testsuite, run]))) > 1:
+  if len(list(filter((lambda x: x), [llvm, testsuite, run, spec]))) > 1:
     multi_cfg = True
 
   if llvm:
     parser.add_argument('--cfg', help='config path for LLVM (json file)',
-        action='store', required=isRequired)
+        action='store', required="llvm" not in optionals)
 
   if llvm2:
     assert(llvm)
     parser.add_argument('--cfg2', help='config path for LLVM (json file)',
-        action='store', required=isRequired)
+        action='store', required="llvm2" not in optionals)
 
   if testsuite:
     parser.add_argument('--' + ("test" if multi_cfg else "") + 'cfg',
         help='config path for test-suite (json file)', action='store',
-        required=isRequired)
+        required="testsuite" not in optionals)
 
   if run:
     parser.add_argument('--' + ("run" if multi_cfg else "") + 'cfg',
         help='config path for run (json file)', action='store',
-        required=isRequired)
+        required="run" not in optionals)
+
+  if spec:
+    parser.add_argument('--' + ("spec" if multi_cfg else "") + "cfg",
+        help='config path for SPEC (json file)', action='store',
+        required="spec" not in optionals)
 
   return parser
 
@@ -120,9 +125,10 @@ Commands:
   build     Build LLVM
   testsuite Clone & initialize test-suite and lnt
   test      Run test-suite using cmake
-  diff      Compile test-suite with two compilers and compare outputs
-            (e.g. assembly)
   lnt       Run test-suite using lnt
+  spec      Run SPEC benchmark
+  diff      Compile test-suite with two compilers and compare assemblies
+            (NOTE: this option is experimental)
   check     Check config files
 
 Type 'python3 run.py <command> help' to get details
@@ -291,7 +297,7 @@ Type 'python3 run.py <command> help' to get details
   ############################################################
 
   # Get a path of directory to build test-suite
-  def _getTestSuiteBuildPath(self, cfg, testcfg, runcfg):
+  def _getTestSuiteBuildPath(self, cfg, testcfg, runcfg, path_suffix=None):
     orgpath = testcfg["test-suite-dir"]
     while orgpath[-1] == '/':
       orgpath = orgdir[:-1]
@@ -307,6 +313,10 @@ Type 'python3 run.py <command> help' to get details
                                     cfg["repo"]["llvm"]["branch"],
                                     cfg["repo"]["clang"]["branch"],
                                     runcfg["buildopt"], strnow)
+
+    if path_suffix:
+      testpath = testpath + path_suffix
+
     return testpath
 
   # Initialize cset
@@ -317,7 +327,8 @@ Type 'python3 run.py <command> help' to get details
     p.wait()
 
   # Build test-suite by running cmake and make
-  def _buildTestSuiteUsingCMake(self, testpath, cfg, testcfg, runcfg):
+  def _buildTestSuiteUsingCMake(self, testpath, cfg, testcfg, runcfg, speccfg=None,
+                                runonly=None):
     assert(not os.path.exists(testpath))
 
     llvmdir = cfg["builds"][runcfg["buildopt"]]["path"]
@@ -328,10 +339,19 @@ Type 'python3 run.py <command> help' to get details
     cmakeopt = ["cmake", "-DCMAKE_C_COMPILER=%s" % clang,
                          "-DCMAKE_CXX_COMPILER=%s" % clangpp,
                          "-C%s/cmake/caches/O3.cmake" % testcfg["test-suite-dir"]]
+    if speccfg != None:
+      cmakeopt.append("-DTEST_SUITE_SPEC2017_ROOT=%s" % speccfg["installed-dir"])
     if hasAndEquals(runcfg, "emitasm", True):
       cmakeopt = cmakeopt + ["-DCMAKE_C_FLAGS=-save-temps",
                              "-DCMAKE_CXX_FLAGS=-save-temps"]
-
+    if runonly:
+      subdir = runonly
+      if runonly.find("/") != -1:
+        subdir = runonly[0:runonly.find("/")]
+      assert (subdir in ["Bitcode", "External", "MicroBenchmarks",
+              "MultiSource", "SingleSource"]), \
+              "Unknown directory (or file): %s" % runonly
+      cmakeopt = cmakeopt + ["-DTEST_SUITE_SUBDIRS=%s" % subdir]
 
     if runcfg["benchmark"]:
       cmakeopt = cmakeopt + ["-DTEST_SUITE_BENCHMARKING_ONLY=On"]
@@ -348,18 +368,25 @@ Type 'python3 run.py <command> help' to get details
     p.wait()
 
 
+    makedir = testpath
     makeopt = ["make"]
     if runcfg["benchmark"] == False:
       corecnt = runcfg["build-threads"] if "build-threads" in runcfg else 1
       makeopt.append("-j%d" % corecnt)
-      #makeopt.append("-j")
+
+    if runonly:
+      if runonly.startswith("SingleSource"):
+        # To be conservative, remove the last path
+        makedir = makdir + "/" + os.path.dirname(runonly)
+      else:
+        makedir = makedir + "/" + runonly
 
     if hasAndEquals(runcfg, "emitasm", True):
       # Ignore compile failures
       makeopt.append("-i")
 
     # Run make.
-    p = Popen(makeopt, cwd=testpath)
+    p = Popen(makeopt, cwd=makedir)
     p.wait()
 
   # Runs llvm-lit.
@@ -384,29 +411,17 @@ Type 'python3 run.py <command> help' to get details
     p = Popen(args, cwd=testpath)
     p.wait()
 
-
-  ##
   # Run Test Suite using CMake
-  ##
-  def test(self):
-    parser = newParser("test", llvm=True, testsuite=True, run=True)
-    parser.add_argument('--runonly',
-        help='Run a specified test only (e.g. SingleSource/Benchmarks/Shootout)',
-        action='store', required=False)
-    args = parser.parse_args(sys.argv[2:])
-
-    cfg = json.load(open(args.cfg))
-    testcfg = json.load(open(args.testcfg))
-    runcfg = json.load(open(args.runcfg))
-
-
-    testpath = self._getTestSuiteBuildPath(cfg, testcfg, runcfg)
+  def _runTestSuiteUsingCMake(self, cfg, testcfg, runcfg, runonly,
+                              speccfg=None, path_suffix=None):
+    testpath = self._getTestSuiteBuildPath(cfg, testcfg, runcfg, path_suffix)
 
     if hasAndEquals(runcfg, "use_cset", True):
       self._initCSet();
 
     if not hasAndEquals(runcfg, "nobuild", True):
-      self._buildTestSuiteUsingCMake(testpath, cfg, testcfg, runcfg)
+      self._buildTestSuiteUsingCMake(testpath, cfg, testcfg, runcfg, speccfg=speccfg,
+                                     runonly=runonly)
 
     # Of iterations to run
     if hasAndEquals(runcfg, "emitasm", True):
@@ -422,8 +437,26 @@ Type 'python3 run.py <command> help' to get details
         print("Warning: benchmark is set, but --threads is not 1!")
 
     for itr in range(0, itrcnt):
-      runonly = args.runonly if args.runonly else "."
+      runonly = runonly if runonly else "."
       self._runLit(testpath, llvmdir, runonly, corecnt)
+
+
+  ##
+  # Run Test Suite using CMake
+  ##
+  def test(self):
+    parser = newParser("test", llvm=True, testsuite=True, run=True)
+    parser.add_argument('--runonly',
+        help='Run a specified test only (e.g. SingleSource/Benchmarks/Shootout)',
+        action='store', required=False)
+    args = parser.parse_args(sys.argv[2:])
+
+    cfg = json.load(open(args.cfg))
+    testcfg = json.load(open(args.testcfg))
+    runcfg = json.load(open(args.runcfg))
+    runonly = args.runonly if args.runonly else None
+
+    self._runTestSuiteUsingCMake(cfg, testcfg, runcfg, runonly)
 
 
   # Get the list of tests by running `llvm-lit --show-tests`
@@ -529,6 +562,43 @@ Type 'python3 run.py <command> help' to get details
 
 
   ############################################################
+  #                Running SPEC benchmarks
+  ############################################################
+  def spec(self):
+    parser = newParser("spec", llvm=True, testsuite=True, run=True, spec=True,
+                       optionals=["testsuite"])
+    parser.add_argument('--testsuite', action="store_true",
+        help='Use test-suite to run SPEC')
+    parser.add_argument('--runonly', action="store",
+        choices=["CINT2017rate", "CFP2017rate", "CINT2017speed", "CFP2017speed"],
+        help='Only run this benchmark')
+    args = parser.parse_args(sys.argv[2:])
+
+    if args.testsuite:
+      if not args.testcfg:
+        print("--testcfg should be given to run SPEC with test-suite!")
+        exit(1)
+
+      cfg = json.load(open(args.cfg))
+      testcfg = json.load(open(args.testcfg))
+      runcfg = json.load(open(args.runcfg))
+      speccfg = json.load(open(args.speccfg))
+      runonly = "External/SPEC"
+      if args.runonly:
+        runonly = runonly + "/" + args.runonly
+
+      suffix = "_SPEC2017"
+      if args.runonly:
+        suffix = "_" + args.runonly
+      self._runTestSuiteUsingCMake(cfg, testcfg, runcfg, runonly,
+                                   speccfg=speccfg, path_suffix=suffix)
+
+    else:
+      assert False, "Not implemented"
+
+
+
+  ############################################################
   #           Building test-suite using LNT script
   ############################################################
   def lnt(self):
@@ -575,7 +645,8 @@ Type 'python3 run.py <command> help' to get details
   #                   check config files
   ############################################################
   def check(self):
-    parser = newParser("test", llvm=True, testsuite=True, run=True, isRequired=False)
+    parser = newParser("test", llvm=True, testsuite=True, run=True, spec=True,
+                       optionals=["llvm", "testsuite", "run", "spec"])
     args = parser.parse_args(sys.argv[2:])
     hasFatal = False
     hasWarning = False
@@ -648,6 +719,12 @@ Type 'python3 run.py <command> help' to get details
                    msg="If use_cset = true, cset_username should be specified.")
       if hasAndEquals(runcfg, "benchmark", True) and hasAndEquals(runcfg, "emitasm", True):
         _errmsg(True, "emitasm and benchmark cannot be both true.")
+
+    if args.speccfg:
+      fname = args.speccfg
+      speccfg = json.load(open(args.speccfg))
+
+      _checkAttr("installed-dir" in speccfg, "installed-dir", fname, True)
 
     if hasFatal:
       exit(2)
