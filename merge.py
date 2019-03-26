@@ -60,6 +60,7 @@ def median_test(ts):
 if len(sys.argv) < 3:
   print("Merges results of test-suite runs")
   print("python3 merge.py output.json result1.json result2.json ..")
+  exit(1)
 
 
 data = []
