@@ -12,31 +12,31 @@ WIP; don't use this.
 
 # Commands
 
-`python3 run.py clone --cfg <.json file (ex: examples/llvm.json)>`
+`python3 run.py clone --cfg examples/llvm.json`
 
-- Clones LLVM (as well as Clang, if mentioned in the config file)
+- Clones LLVM (as well as Clang and other projects, if mentioned in the config file)
 
 
-`python3 run.py build --cfg <.json file> --build <release/relassert/debug> --core <# of cores to use>`
+`python3 run.py build --cfg examples/llvm.json --build <release/relassert/debug> --core <# of cores to use>`
 
 - Builds LLVM (as well as Clang)
 
 
-`python3 run.py testsuite --cfg <.json file>`
+`python3 run.py testsuite --cfg examples/testsuite.json`
 
 - Clones & initializes LLVM Nightly Tests
 
 
-`python3 run.py test --cfg <.json file> --testcfg <.json file> --runcfg <.json file>`
+`python3 run.py test --cfg examples/llvm.json --testcfg examples/testsuite.json --runcfg examples/run.json`
 
 - Runs Test Suite with `cmake` command
 
 
-`python3 run.py lnt --cfg <.json file> --testcfg <.json file> --runcfg <.json file>`
+`python3 run.py lnt --cfg examples/llvm.json --testcfg examples/testsuite.json --runcfg examples/run.json`
 
 - Runs Test Suite with LLVM Nightly Tests script
 
 
-`python3 run.py spec --cfg <.json file> --testcfg <.json file> --runcfg <.json file> --speccfg <.json file> --testsuite --runonly CINT2017rate`
+`python3 run.py spec --cfg examples/llvm.json --testcfg examples/testsuite.json --runcfg examples/run.json --speccfg examples/spec.json --testsuite --runonly CINT2017rate`
 
 - Runs SPEC CINT2017rate using test-suite
