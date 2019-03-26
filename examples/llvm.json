@@ -15,21 +15,18 @@
       "branch":"master"
     }
   },
-  "builds":[
-    {
-      "type":"release",
+  "builds":{
+    "release":{
       "path":"./my-llvm-release",
       "sharedlib":false
     },
-    {
-      "type":"relassert",
+    "relassert":{
       "path":"./my-llvm-releaseassert",
       "sharedlib":true
     },
-    {
-      "type":"debug",
+    "debug":{
       "path":"./my-llvm-debug",
       "sharedlib":true
     }
-  ]
+  }
 }

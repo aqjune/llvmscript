@@ -11,54 +11,48 @@ from subprocess import Popen
 
 
 # Check whether given config is valid
-def checkLLVMConfigForClone(js):
+def checkLLVMConfigForClone(js, filename=None):
+  errmsg = lambda attrname: "Attribute %s does not exist%" % \
+      (attrname, " in file %s" % filename if filename else "")
   # Destination of src should exist
-  assert ("src" in js)
+  assert ("src" in js), errmsg("src")
   # Should have cloninig repo info
-  assert ("repo" in js)
+  assert ("repo" in js), errmsg("repo")
   # LLVM repo should exist
-  assert ("llvm" in js["repo"])
+  assert ("llvm" in js["repo"]), errmsg("repo/llvm")
   # For each repo, url should exist
   for i in js["repo"]:
-    assert ("url" in js["repo"][i])
+    assert ("url" in js["repo"][i]), errmsg("repo/%s/url" % i)
 
-def checkLLVMConfigForBuild(js, buildopt):
+def checkLLVMConfigForBuild(js, buildopt,
+                            filename=None):
+  errmsg = lambda attrname: "Attribute %s does not exist%" % \
+      (attrname, " in file %s" % filename if filename else "")
   # Destination of src should exist
-  assert ("src" in js)
+  assert ("src" in js), errmsg("src")
   # Should have build options
-  assert ("builds" in js)
-  found = False
-  for i in js["builds"]:
-    if i["type"] == buildopt:
-      assert ("path" in i)
-      assert ("sharedlib" in i)
-      found = True
-  assert(found)
+  assert ("builds" in js), errmsg("builds")
+  assert (buildopt in js["builds"]), errmsg("builds/%s" % buildopt)
+  assert ("path" in js["builds"][buildopt]), errmsg("builds/%s/path" % buildopt)
 
-def checkLNTConfigForClone(js):
+def checkLNTConfigForClone(js, filename=None):
+  errmsg = lambda attrname: "Attribute %s does not exist%" % \
+      (attrname, " in file %s" % filename if filename else "")
   # Destination of lnt/test-suite/virtualenv should exist
-  assert ("lnt-dir" in js)
-  assert ("test-suite-dir" in js)
-  assert ("virtualenv-dir" in js)
+  assert ("lnt-dir" in js), errmsg("lnt-dir")
+  assert ("test-suite-dir" in js), errmsg("test-suite-dir")
+  assert ("virtualenv-dir" in js), errmsg("virtualenv-dir")
   # Should have cloninig repo info
-  assert ("repo" in js)
+  assert ("repo" in js), errmsg("repo")
   # LLVM repo should exist
-  assert ("lnt" in js["repo"])
-  assert ("test-suite" in js["repo"])
+  assert ("lnt" in js["repo"]), errmsg("repo/lnt")
+  assert ("test-suite" in js["repo"]), errmsg("repo/test-suite")
   for i in js["repo"]:
-    assert ("url" in js["repo"][i])
+    assert ("url" in js["repo"][i]), errmsg("repo/%s/url" % i)
 
-def getBuildOption(cfg, build):
-  options = None
-  for i in cfg["builds"]:
-    if i["type"] == build:
-      options = i
-      break
 
-  assert(options != None)
-  return options
-
-def newParser(cmd, llvm=False, llvm2=False, testsuite=False, run=False):
+def newParser(cmd, llvm=False, llvm2=False, testsuite=False, run=False,
+              isRequired=True):
   parser = argparse.ArgumentParser(
       description = 'Arguments for %s command' % cmd)
 
@@ -68,23 +62,25 @@ def newParser(cmd, llvm=False, llvm2=False, testsuite=False, run=False):
 
   if llvm:
     parser.add_argument('--cfg', help='config path for LLVM (json file)',
-        action='store', required=True)
+        action='store', required=isRequired)
 
   if llvm2:
     assert(llvm)
     parser.add_argument('--cfg2', help='config path for LLVM (json file)',
-        action='store', required=True)
+        action='store', required=isRequired)
 
   if testsuite:
     parser.add_argument('--' + ("test" if multi_cfg else "") + 'cfg',
         help='config path for test-suite (json file)', action='store',
-        required=True)
+        required=isRequired)
 
   if run:
     parser.add_argument('--' + ("run" if multi_cfg else "") + 'cfg',
-        help='config path for run (json file)', action='store', required=True)
+        help='config path for run (json file)', action='store',
+        required=isRequired)
 
   return parser
+
 
 def hasAndEquals(d, key, val):
   return key in d and d[key] == val
@@ -111,6 +107,7 @@ def startGitClone(repo, dest, branch, depth):
 
 
 
+
 # Main object.
 class LLVMScript(object):
 
@@ -126,6 +123,7 @@ Commands:
   diff      Compile test-suite with two compilers and compare outputs
             (e.g. assembly)
   lnt       Run test-suite using lnt
+  check     Check config files
 
 Type 'python3 run.py <command> help' to get details
 ''')
@@ -191,7 +189,7 @@ Type 'python3 run.py <command> help' to get details
 
     checkLLVMConfigForBuild(cfg, args.build)
 
-    options = getBuildOption(cfg, args.build)
+    options = cfg["builds"][args.build]
 
     if not os.path.exists(options["path"]):
       try:
@@ -210,7 +208,7 @@ Type 'python3 run.py <command> help' to get details
     elif args.build == "debug":
       cmd.append("-DCMAKE_BUILD_TYPE=Debug")
 
-    if options["sharedlib"]:
+    if hasAndEquals("sharedlib", options, True):
       cmd.append("-DBUILD_SHARED_LIBS=1")
 
     externals = []
@@ -322,7 +320,7 @@ Type 'python3 run.py <command> help' to get details
   def _buildTestSuiteUsingCMake(self, testpath, cfg, testcfg, runcfg):
     assert(not os.path.exists(testpath))
 
-    llvmdir = getBuildOption(cfg, runcfg["buildopt"])["path"]
+    llvmdir = cfg["buildopt"][runcfg["buildopt"]]["path"]
     clang = "%s/bin/clang" % llvmdir
     clangpp = clang + "++"
 
@@ -352,7 +350,8 @@ Type 'python3 run.py <command> help' to get details
 
     makeopt = ["make"]
     if runcfg["benchmark"] == False:
-      makeopt.append("-j%d" % runcfg["build-threads"])
+      corecnt = runcfg["build-threads"] if "build-threads" in runcfg else 1
+      makeopt.append("-j%d" % corecnt)
       #makeopt.append("-j")
 
     if hasAndEquals(runcfg, "emitasm", True):
@@ -416,8 +415,8 @@ Type 'python3 run.py <command> help' to get details
     else:
       itrcnt = runcfg["iteration"] if "iteration" in runcfg else 1
 
-    llvmdir = getBuildOption(cfg, runcfg["buildopt"])["path"]
-    corecnt = runcfg["threads"]
+    llvmdir = cfg["bulids"][runcfg["buildopt"]]["path"]
+    corecnt = runcfg["threads"] if "threads" in runcfg else 1
     if runcfg["benchmark"] == True:
       if "threads" in runcfg and runcfg["threads"] != 1:
         print("Warning: benchmark is set, but --threads is not 1!")
@@ -475,9 +474,9 @@ Type 'python3 run.py <command> help' to get details
       self._buildTestSuiteUsingCMake(testpath1, cfg1, testcfg, runcfg)
       self._buildTestSuiteUsingCMake(testpath2, cfg2, testcfg, runcfg)
 
-    corecnt = runcfg["threads"]
-    llvmdir1 = getBuildOption(cfg1, runcfg["buildopt"])["path"]
-    llvmdir2 = getBuildOption(cfg2, runcfg["buildopt"])["path"]
+    corecnt = runcfg["threads"] if "threads" in runcfg else 1
+    llvmdir1 = cfg1["builds"][runcfg["buildopt"]]["path"]
+    llvmdir2 = cfg2["builds"][runcfg["buildopt"]]["path"]
     self._runLit(testpath1, llvmdir1, None, corecnt, noExecute=True)
     self._runLit(testpath2, llvmdir2, None, corecnt, noExecute=True)
 
@@ -532,7 +531,6 @@ Type 'python3 run.py <command> help' to get details
   ############################################################
   #           Building test-suite using LNT script
   ############################################################
-
   def lnt(self):
     parser = newParser("lnt", llvm=True, testsuite=True, run=True)
     args = parser.parse_args(sys.argv[2:])
@@ -543,7 +541,7 @@ Type 'python3 run.py <command> help' to get details
 
     buildopt = runcfg["buildopt"]
     assert(buildopt == "relassert" or buildopt == "release" or buildopt == "debug")
-    clangdir = getBuildOption(cfg, buildopt)["path"]
+    clangdir = cfg["builds"][buildopt]["path"]
 
     cmds = [testcfg["virtualenv-dir"] + "/bin/lnt",
             "runtest",
@@ -554,15 +552,18 @@ Type 'python3 run.py <command> help' to get details
             "--test-suite", testcfg["test-suite-dir"]]
 
     if runcfg["benchmark"] == True:
-      if runcfg["threads"] != 1:
+      if "threads" in runcfg and runcfg["threads"] != 1:
         print("Warning: benchmark is set, but --threads is not 1!")
       cmds = cmds + ["--benchmarking-only", "--use-perf", "time",
                      "--make-param", "\"RUNUNDER=taskset -c 1\""]
 
       if "iteration" in runcfg:
         cmds = cmds + ["--multisample", runcfg["iteration"]]
-    cmds = cmds + ["--threads", str(runcfg["threads"])]
-    cmds = cmds + ["--build-threads", str(runcfg["build-threads"])]
+
+    if "threads" in runcfg:
+      cmds = cmds + ["--threads", str(runcfg["threads"])]
+    if "build-threads" in runcfg:
+      cmds = cmds + ["--build-threads", str(runcfg["build-threads"])]
 
     print(cmds)
 
@@ -570,8 +571,92 @@ Type 'python3 run.py <command> help' to get details
     p.wait()
 
 
+  ############################################################
+  #                   check config files
+  ############################################################
+  def check(self):
+    parser = newParser("test", llvm=True, testsuite=True, run=True, isRequired=False)
+    args = parser.parse_args(sys.argv[2:])
+    hasFatal = False
+    hasWarning = False
+
+    def _errmsg(is_fatal, msg, submsg=None):
+      print("[%s] %s" % ("Fatal" if is_fatal else "Warning", msg))
+      if submsg:
+        print("\t%s" % submsg)
+
+    def _checkAttr(flag, attrname, filename, is_fatal, msg=None):
+      nonlocal hasFatal
+      nonlocal hasWarning
+      if flag:
+        return
+      if is_fatal:
+        hasFatal = True
+      else:
+        hasWarning = True
+      _errmsg(is_fatal, "Attribute %s does not exist in %s" % (attrname, filename),
+              submsg=msg)
+
+    if args.cfg:
+      fname = args.cfg
+      cfg = json.load(open(fname))
+
+      _checkAttr("src" in cfg, "src", fname, True)
+      _checkAttr("repo" in cfg, "repo", fname, True)
+      _checkAttr("builds" in cfg, "builds", fname, True)
+      _checkAttr("llvm" in cfg["repo"], "repo/llvm", fname, True)
+      _checkAttr("clang" in cfg["repo"], "repo/clang", fname, False,
+                 msg="clang is needed to run test-suite")
+      _checkAttr("compiler-rt" in cfg["repo"], "repo/compiler-rt", fname, False,
+                 msg="compiler-rt is needed to run test-suite with cmake")
+
+      for prj in cfg["repo"]:
+        _checkAttr("url" in cfg["repo"][prj], "repo/%s/url" % prj, fname, True)
+        _checkAttr("branch" in cfg["repo"][prj], "repo/%s/branch" % prj, fname, True)
+
+      for build in cfg["builds"]:
+        _checkAttr("path" in cfg["builds"][build], "builds/%s/path" % build, fname, True)
+        # sharedlib is not mandatory
+
+    if args.testcfg:
+      fname = args.testcfg
+      testcfg = json.load(open(fname))
+
+      _checkAttr("lnt-dir" in testcfg, "lnt-dir", fname, False,
+                 msg="lnt-dir is needed to run test-suite with lnt")
+      _checkAttr("test-suite-dir" in testcfg, "test-suite", fname, True)
+      _checkAttr("virtualenv-dir" in testcfg, "virtualenv-dir", fname, False,
+                 msg="virtualenv-dir is needed to run test-suite with lnt")
+      _checkAttr("repo" in testcfg, "repo", fname, True)
+      _checkAttr("test-suite" in testcfg["repo"], "repo/test-suite", fname, True)
+      _checkAttr("lnt" in testcfg["repo"], "repo/lnt", fname, False,
+                 msg="repo/lnt is needed to run test-suite with lnt")
+
+      for prj in testcfg["repo"]:
+        _checkAttr("url" in testcfg["repo"][prj], "repo/%s/url" % prj, fname, True)
+        _checkAttr("branch" in testcfg["repo"][prj], "repo/%s/branch" % prj, fname, True)
+
+    if args.runcfg:
+      fname = args.runcfg
+      runcfg = json.load(open(args.runcfg))
+
+      _checkAttr("buildopt" in runcfg, "buildopt", fname, True)
+      _checkAttr("benchmark" in runcfg, "benchmark", fname, True)
+
+      if hasAndEquals(runcfg, "use_cset", True):
+        _checkAttr("cset_username" in runcfg, "cset_username", fname, True,
+                   msg="If use_cset = true, cset_username should be specified.")
+      if hasAndEquals(runcfg, "benchmark", True) and hasAndEquals(runcfg, "emitasm", True):
+        _errmsg(True, "emitasm and benchmark cannot be both true.")
+
+    if hasFatal:
+      exit(2)
+    elif hasWarning:
+      exit(1)
+    else:
+      exit(0)
+
+
 if __name__ == '__main__':
   LLVMScript()
-
-# LLVM_EXTERNAL_{CLANG,LLD,POLLY}_SOURCE_DIR:PATH
 
