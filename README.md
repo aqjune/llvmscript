@@ -1,6 +1,8 @@
 # llvmscript
 
-One-for-all python script for running experiment with LLVM 
+One-for-all python script for running experiment with LLVM
+
+WIP; don't use this.
 
 
 # Prerequisites
