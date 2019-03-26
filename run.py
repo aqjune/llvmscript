@@ -208,7 +208,7 @@ Type 'python3 run.py <command> help' to get details
     elif args.build == "debug":
       cmd.append("-DCMAKE_BUILD_TYPE=Debug")
 
-    if hasAndEquals("sharedlib", options, True):
+    if hasAndEquals(options, "sharedlib", True):
       cmd.append("-DBUILD_SHARED_LIBS=1")
 
     externals = []
