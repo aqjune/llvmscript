@@ -166,6 +166,34 @@ Type 'python3 run.py <command> help' to get details
       if args.depth:
         depth = args.depth
 
+      if os.path.isdir(dest):
+        cmds = ["git", "remote", "get-url", "origin"]
+        p = Popen(cmds, cwd=dest, stdout=subprocess.PIPE)
+        out, err = p.communicate()
+        out = out.decode("utf-8").strip()
+        if out != repo:
+          print("Directory %s already exists and it has unknown remote: %s" %
+                (dest, out))
+          exit(1)
+
+        cmds = ["git", "branch", "--no-color"]
+        p = Popen(cmds, cwd=dest, stdout=subprocess.PIPE)
+        out, err = p.communicate()
+        lines = [s.strip() for s in out.decode("utf-8").strip().split("\n")]
+        curbranch = None
+        for b in lines:
+          if b.startswith("* "):
+            curbranch = b[len(" *"):]
+        if curbranch != branch:
+          print("Directory %s already exists and it has unknown branch: %s" %
+                (dest, curbranch))
+          exit(1)
+
+        # Fetch the branch
+        Popen(["git", "fetch", "origin"], cwd=dest,
+              stdout=subprocess.PIPE, stderr=subprocess.PIPE).wait()
+        return Popen(["git", "reset", "--hard", "origin/%s" % branch], cwd=dest)
+
       return startGitClone(repo, dest, branch, depth)
 
     pipes = []
@@ -175,6 +203,8 @@ Type 'python3 run.py <command> help' to get details
       pipes.append(_callGitClone(cfg, "compiler-rt"))
     if "libcxx" in cfg["repo"]:
       pipes.append(_callGitClone(cfg, "libcxx"))
+    if "libcxxabi" in cfg["repo"]:
+      pipes.append(_callGitClone(cfg, "libcxxabi"))
     for p in pipes:
       p.wait()
 
