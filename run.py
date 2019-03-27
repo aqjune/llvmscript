@@ -173,6 +173,8 @@ Type 'python3 run.py <command> help' to get details
     pipes.append(_callGitClone(cfg, "clang"))
     if "compiler-rt" in cfg["repo"]:
       pipes.append(_callGitClone(cfg, "compiler-rt"))
+    if "libcxx" in cfg["repo"]:
+      pipes.append(_callGitClone(cfg, "libcxx"))
     for p in pipes:
       p.wait()
 
@@ -222,6 +224,11 @@ Type 'python3 run.py <command> help' to get details
       externals = externals + ["clang"]
     if "compiler-rt" in cfg["repo"]:
       externals = externals + ["compiler-rt"]
+    if "libcxx" in cfg["repo"]:
+      externals = externals + ["libcxx"]
+    if "libcxxabi" in cfg["repo"]:
+      externals = externals + ["libcxxabi"]
+
     if len(externals) != 0:
       cmd.append("-DLLVM_ENABLE_PROJECTS=%s" % ";".join(externals))
 
@@ -377,7 +384,7 @@ Type 'python3 run.py <command> help' to get details
     if runonly:
       if runonly.startswith("SingleSource"):
         # To be conservative, remove the last path
-        makedir = makdir + "/" + os.path.dirname(runonly)
+        makedir = makedir + "/" + os.path.dirname(runonly)
       else:
         makedir = makedir + "/" + runonly
 
@@ -680,6 +687,10 @@ Type 'python3 run.py <command> help' to get details
                  msg="clang is needed to run test-suite")
       _checkAttr("compiler-rt" in cfg["repo"], "repo/compiler-rt", fname, False,
                  msg="compiler-rt is needed to run test-suite with cmake")
+      _checkAttr("libcxx" in cfg["repo"], "repo/libcxx", fname, False,
+                 msg="using libcxx is recommended for consistent environment setting")
+      _checkAttr("libcxxabi" in cfg["repo"], "repo/libcxxabi", fname, False,
+                 msg="using libcxxabi is recommended for consistent environment setting")
 
       for prj in cfg["repo"]:
         _checkAttr("url" in cfg["repo"][prj], "repo/%s/url" % prj, fname, True)
