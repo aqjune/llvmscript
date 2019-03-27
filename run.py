@@ -372,15 +372,31 @@ Type 'python3 run.py <command> help' to get details
     clang = "%s/bin/clang" % llvmdir
     clangpp = clang + "++"
 
+    if "libcxx" in cfg["repo"]:
+      # Set LD_LIBRARY_PATH
+      os.putenv("LD_LIBRARY_PATH", "%s/lib" % llvmdir)
+
     os.makedirs(testpath)
     cmakeopt = ["cmake", "-DCMAKE_C_COMPILER=%s" % clang,
                          "-DCMAKE_CXX_COMPILER=%s" % clangpp,
                          "-C%s/cmake/caches/O3.cmake" % testcfg["test-suite-dir"]]
     if speccfg != None:
       cmakeopt.append("-DTEST_SUITE_SPEC2017_ROOT=%s" % speccfg["installed-dir"])
+    
+    cflags = ""
+    cxxflags = ""
     if hasAndEquals(runcfg, "emitasm", True):
-      cmakeopt = cmakeopt + ["-DCMAKE_C_FLAGS=-save-temps",
-                             "-DCMAKE_CXX_FLAGS=-save-temps"]
+      cflags   = cflags + " -save-temps"
+      cxxflags = cxxflags + " -save-temps"
+
+    if "libcxx" in cfg["repo"]:
+      cxxflags = cxxflags + " -stdlib=libc++"
+
+    if len(cflags) > 0:
+      cmakeopt = cmakeopt + ["-DCMAKE_C_FLAGS=%s" % cflags]
+    if len(cxxflags) > 0:
+      cmakeopt = cmakeopt + ["-DCMAKE_CXX_FLAGS=%s" % cxxflags]
+
     if runonly:
       subdir = runonly
       if runonly.find("/") != -1:
