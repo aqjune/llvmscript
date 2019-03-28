@@ -7,6 +7,7 @@ import uuid
 import datetime
 import re
 import subprocess
+import smtplib
 from subprocess import Popen
 
 
@@ -52,7 +53,7 @@ def checkLNTConfigForClone(js, filename=None):
 
 
 def newParser(cmd, llvm=False, llvm2=False, testsuite=False, run=False,
-              spec=False, optionals=[]):
+              spec=False, sendmail=False, optionals=[]):
   parser = argparse.ArgumentParser(
       description = 'Arguments for %s command' % cmd)
 
@@ -84,6 +85,10 @@ def newParser(cmd, llvm=False, llvm2=False, testsuite=False, run=False,
         help='config path for SPEC (json file)', action='store',
         required="spec" not in optionals)
 
+  if sendmail:
+    parser.add_argument("--sendmail", help="Mail notification config",
+        action="store", required="sendmail" not in optionals)
+
   return parser
 
 
@@ -110,8 +115,24 @@ def startGitClone(repo, dest, branch, depth):
     print ("Cannot create directory '{0}'.".format(dest))
     exit(1)
 
+# Send a mail.
+def sendMail(cfg, title, contents):
+  efrom = mailcfg["efrom"]
+  frompasswd = mailcfg["frompasswd"]
+  eto = mailcfg["eto"]
+  try:
+    server = smtplib.SMTP('smtp.gmail.com:587')
+    server.ehlo()
+    server.starttls()
+    server.login(efrom, frompasswd)
 
+    data = ("From: %s\nTo: %s\nSubject: %s\n\n%s\n" %
+            (efrom, eto, title, contents))
 
+    server.sendmail(efrom, eto, title, text)
+    server.close()
+  except Exception as e:
+    print(e)
 
 # Main object.
 class LLVMScript(object):
@@ -145,7 +166,7 @@ Type 'python3 run.py <command> help' to get details
 
 
   def clone(self):
-    parser = newParser("clone", llvm=True)
+    parser = newParser("clone", llvm=True, sendmail=True, optionals=["sendmail"])
     parser.add_argument('--depth', help='commit depth to clone (-1 means inf)', nargs='?', const=-1, type=int)
     args = parser.parse_args(sys.argv[2:])
 
@@ -210,7 +231,7 @@ Type 'python3 run.py <command> help' to get details
 
 
   def build(self):
-    parser = newParser("build", llvm=True)
+    parser = newParser("build", llvm=True, sendmail=True, optionals=["sendmail"])
     parser.add_argument('--build', help='release/relassert/debug', action='store', required=True)
     parser.add_argument('--core', help='# of cores to use', nargs='?', const=1, type=int)
     parser.add_argument('--target', help='targets, separated by comma (ex: opt,clang,llvm-as)',
@@ -285,7 +306,7 @@ Type 'python3 run.py <command> help' to get details
   #              cloning test-suite and lnt
   ############################################################
   def testsuite(self):
-    parser = newParser("testsuite", testsuite=True)
+    parser = newParser("testsuite", testsuite=True, sendmail=True, optionals=["sendmail"])
     args = parser.parse_args(sys.argv[2:])
 
     cfgpath = args.cfg
@@ -498,7 +519,8 @@ Type 'python3 run.py <command> help' to get details
   # Run Test Suite using CMake
   ##
   def test(self):
-    parser = newParser("test", llvm=True, testsuite=True, run=True)
+    parser = newParser("test", llvm=True, testsuite=True, run=True,
+        sendmail=True, optionals=["sendmail"])
     parser.add_argument('--runonly',
         help='Run a specified test only (e.g. SingleSource/Benchmarks/Shootout)',
         action='store', required=False)
@@ -619,7 +641,7 @@ Type 'python3 run.py <command> help' to get details
   ############################################################
   def spec(self):
     parser = newParser("spec", llvm=True, testsuite=True, run=True, spec=True,
-                       optionals=["testsuite"])
+                       sendmail=True, optionals=["testsuite", "sendmail"])
     parser.add_argument('--testsuite', action="store_true",
         help='Use test-suite to run SPEC')
     parser.add_argument('--runonly', action="store",
@@ -655,7 +677,8 @@ Type 'python3 run.py <command> help' to get details
   #           Building test-suite using LNT script
   ############################################################
   def lnt(self):
-    parser = newParser("lnt", llvm=True, testsuite=True, run=True)
+    parser = newParser("lnt", llvm=True, testsuite=True, run=True,
+        sendmail=True, optionals=["sendmail"])
     args = parser.parse_args(sys.argv[2:])
 
     cfg = json.load(open(args.cfg))
@@ -699,7 +722,8 @@ Type 'python3 run.py <command> help' to get details
   ############################################################
   def check(self):
     parser = newParser("test", llvm=True, testsuite=True, run=True, spec=True,
-                       optionals=["llvm", "testsuite", "run", "spec"])
+        sendmail=True,
+        optionals=["llvm", "testsuite", "run", "spec", "sendmail"])
     args = parser.parse_args(sys.argv[2:])
     hasFatal = False
     hasWarning = False
@@ -782,6 +806,14 @@ Type 'python3 run.py <command> help' to get details
       speccfg = json.load(open(args.speccfg))
 
       _checkAttr("installed-dir" in speccfg, "installed-dir", fname, True)
+
+    if args.sendmailcfg:
+      fname = args.sendmailcfg
+      smcfg = json.load(open(fname))
+
+      _checkAttr("from" in smcfg, "from", fname, True)
+      _checkAttr("frompasswd" in smcfg, "frompasswd", fname, True)
+      _checkAttr("to" in smcfg, "to", fname, True)
 
     if hasFatal:
       exit(2)
