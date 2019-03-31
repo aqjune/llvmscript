@@ -134,6 +134,8 @@ def sendMail(cfg, title, contents):
   except Exception as e:
     print(e)
 
+
+
 # Main object.
 class LLVMScript(object):
 
@@ -361,10 +363,16 @@ Type 'python3 run.py <command> help' to get details
       orgpath = orgdir[:-1]
 
     if hasAndEquals(runcfg, "emitasm", True):
-      testpath = "%s-%s-%s-%s-asm" % (orgpath,
+      testpath0 = "%s-%s-%s-%s-asm" % (orgpath,
                                   cfg["repo"]["llvm"]["branch"],
                                   cfg["repo"]["clang"]["branch"],
                                   runcfg["buildopt"])
+      testpath = testpath0
+      num = 1
+      while os.path.exists(os.path.join(orgpath, testpath)):
+        num = num + 1
+        testpath = "%s%d" % (testpath0, num)
+
     else:
       strnow = datetime.datetime.now().strftime("%m_%d_%H_%M_%S")
       testpath = "%s-%s-%s-%s-%s" % (orgpath,
@@ -440,7 +448,6 @@ Type 'python3 run.py <command> help' to get details
     # Run cmake.
     p = Popen(cmakeopt, cwd=testpath)
     p.wait()
-
 
     makedir = testpath
     makeopt = ["make"]
