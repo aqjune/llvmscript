@@ -8,6 +8,7 @@ import datetime
 import re
 import subprocess
 import smtplib
+import socket
 from subprocess import Popen
 
 
@@ -86,7 +87,7 @@ def newParser(cmd, llvm=False, llvm2=False, testsuite=False, run=False,
         required="spec" not in optionals)
 
   if sendmail:
-    parser.add_argument("--sendmail", help="Mail notification config",
+    parser.add_argument("--mailcfg", help="Mail notification config",
         action="store", required="sendmail" not in optionals)
 
   return parser
@@ -116,20 +117,28 @@ def startGitClone(repo, dest, branch, depth):
     exit(1)
 
 # Send a mail.
-def sendMail(cfg, title, contents):
-  efrom = mailcfg["efrom"]
+def sendMail(mailcfg, title, contents):
+  efrom = mailcfg["from"]
   frompasswd = mailcfg["frompasswd"]
-  eto = mailcfg["eto"]
+  eto = mailcfg["to"]
+  machinename = socket.gethostname()
+  title = "[llvmscript, %s] %s" % (machinename, title)
+
+  email_text = """\
+From: %s
+To: %s
+Subject: %s
+
+%s
+""" % (efrom, eto, title, contents)
+
   try:
     server = smtplib.SMTP('smtp.gmail.com:587')
     server.ehlo()
     server.starttls()
     server.login(efrom, frompasswd)
 
-    data = ("From: %s\nTo: %s\nSubject: %s\n\n%s\n" %
-            (efrom, eto, title, contents))
-
-    server.sendmail(efrom, eto, title, text)
+    server.sendmail(efrom, eto, email_text)
     server.close()
   except Exception as e:
     print(e)
@@ -231,6 +240,10 @@ Type 'python3 run.py <command> help' to get details
     for p in pipes:
       p.wait()
 
+    if args.mailcfg:
+      cfg = json.load(open(args.mailcfg, "r"))
+      sendMail(cfg, "clone", str(args))
+
 
   def build(self):
     parser = newParser("build", llvm=True, sendmail=True, optionals=["sendmail"])
@@ -303,6 +316,10 @@ Type 'python3 run.py <command> help' to get details
     p = Popen(cmd)
     p.wait()
 
+    if args.mailcfg:
+      cfg = json.load(open(args.mailcfg, "r"))
+      sendMail(cfg, "build", str(args))
+
 
   ############################################################
   #              cloning test-suite and lnt
@@ -350,6 +367,9 @@ Type 'python3 run.py <command> help' to get details
     p = Popen([venv_dir + "/bin/python", cfg["lnt-dir"] + "/setup.py", "install"])
     p.wait()
 
+    if args.mailcfg:
+      cfg = json.load(open(args.mailcfg, "r"))
+      sendMail(cfg, "testsuite", str(args))
 
 
   ############################################################
@@ -540,6 +560,10 @@ Type 'python3 run.py <command> help' to get details
 
     self._runTestSuiteUsingCMake(cfg, testcfg, runcfg, runonly)
 
+    if args.mailcfg:
+      cfg = json.load(open(args.mailcfg, "r"))
+      sendMail(cfg, "test", str(args))
+
 
   # Get the list of tests by running `llvm-lit --show-tests`
   def _getTestList(self, testpath, llvmdir):
@@ -642,6 +666,10 @@ Type 'python3 run.py <command> help' to get details
 
       outf.write("%s %s\n" % (asmf, "YESDIFF" if hasdiff else "NODIFF"))
 
+    if args.mailcfg:
+      cfg = json.load(open(args.mailcfg, "r"))
+      sendMail(cfg, "diff", str(args))
+
 
   ############################################################
   #                Running SPEC benchmarks
@@ -677,6 +705,10 @@ Type 'python3 run.py <command> help' to get details
 
     else:
       assert False, "Not implemented"
+
+    if args.mailcfg:
+      cfg = json.load(open(args.mailcfg, "r"))
+      sendMail(cfg, "spec", str(args))
 
 
 
@@ -722,6 +754,10 @@ Type 'python3 run.py <command> help' to get details
 
     p = Popen(cmds)
     p.wait()
+
+    if args.mailcfg:
+      cfg = json.load(open(args.mailcfg, "r"))
+      sendMail(cfg, "lnt", str(args))
 
 
   ############################################################
