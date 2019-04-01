@@ -159,6 +159,7 @@ Commands:
   test      Run test-suite using cmake
   lnt       Run test-suite using lnt
   spec      Run SPEC benchmark
+  instcount Get statistics of the number of LLVM assembly instructions
   diff      Compile test-suite with two compilers and compare assemblies
             (NOTE: this option is experimental)
   check     Check config files
@@ -758,6 +759,84 @@ Type 'python3 run.py <command> help' to get details
     if args.mailcfg:
       cfg = json.load(open(args.mailcfg, "r"))
       sendMail(cfg, "lnt", str(args))
+
+
+
+  ############################################################
+  #           Building test-suite using LNT script
+  ############################################################
+
+  def _instcount_sum(self, json, jsonres):
+    assert(("instrs" in json) and ("instrs" in jsonres))
+    assert(("constexprs" in json) and ("constexprs" in jsonres))
+    assert(("intrinsics" in json) and ("intrinsics" in jsonres))
+
+    for k in ["instrs", "constexprs", "intrinsics"]:
+      for k2 in json[k]:
+        n = 0
+        if k2 in jsonres[k]:
+          n = jsonres[k][k2]
+        jsonres[k][k2] = n + json[k][k2]
+
+  def instcount(self):
+    parser = newParser("instcount", llvm=True)
+    parser.add_argument('--dir', help='A directory that contains *.bc files', action='store', required=True)
+    parser.add_argument('--out', help='Output (as a json file)', action='store', required=True)
+    args = parser.parse_args(sys.argv[2:])
+
+    cfg = json.load(open(args.cfg))
+    llvmdir = None
+    lcfg = None
+
+    for k in cfg["builds"]:
+      p = cfg["builds"][k]["path"]
+      pcfg = os.path.join(p, "bin", "llvm-config")
+      if os.path.exists(pcfg):
+        llvmdir = p
+        lcfg = pcfg
+        break
+
+    if not lcfg:
+      print("Cannot find llvm-config")
+      exit(1)
+
+    mydir = os.path.dirname(__file__)
+
+    # Let's compile instcounter.cpp
+    p = Popen([lcfg, "--cxxflags", "--ldflags", "--libs", "--system-libs"], stdout=subprocess.PIPE)
+    out, err = p.communicate()
+    cxxflags = out.decode("utf-8").split()
+
+    instcounter = "/tmp/instcounter"
+    p = Popen([os.path.join(llvmdir, "bin", "clang++"), "-std=c++11",
+               os.path.join(mydir, "instcounter.cpp")] + cxxflags +
+              ["-o", instcounter])
+    p.wait()
+    if not os.path.exists(instcounter):
+      print("%s not generated!" % instcounter)
+      exit(1)
+
+    # Now, let's traverse and accumulate the result!
+    bcpaths = [os.path.join(dp, f)
+               for dp, dn, filenames in os.walk(args.dir)
+               for f in filenames if os.path.splitext(f)[-1] == '.bc']
+
+    #results = dict()
+    total = {"instrs":{}, "constexprs":{}, "intrinsics":{} }
+    for bcpath in bcpaths:
+      print(bcpath)
+      p = Popen([instcounter, bcpath], stdout=subprocess.PIPE)
+      out, err = p.communicate()
+      t = out.decode("utf-8")
+      j = json.loads(t)
+      #results[bcpath] = j
+      self._instcount_sum(j, total)
+
+    total["instrs"]["total"] = sum([total["instrs"][k] for k in total["instrs"]])
+    total["constexprs"]["total"] = sum([total["constexprs"][k] for k in total["constexprs"]])
+    total["intrinsics"]["total"] = sum([total["intrinsics"][k] for k in total["intrinsics"]])
+    s = json.dumps(total, indent=2)
+    open(args.out, "w").write(s)
 
 
   ############################################################
