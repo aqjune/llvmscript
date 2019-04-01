@@ -672,6 +672,7 @@ Type 'python3 run.py <command> help' to get details
       sendMail(cfg, "diff", str(args))
 
 
+
   ############################################################
   #                Running SPEC benchmarks
   ############################################################
