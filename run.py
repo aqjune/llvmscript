@@ -472,6 +472,7 @@ Type 'python3 run.py <command> help' to get details
     llvmdir = cfg["builds"][runcfg["buildopt"]]["path"]
     clang = "%s/bin/clang" % llvmdir
     clangpp = clang + "++"
+    llsize = "%s/bin/llvm-size" % llvmdir
 
     if "emitbc" in runcfg:
       # Use cc-emit-llvm.sh
@@ -485,6 +486,7 @@ Type 'python3 run.py <command> help' to get details
     os.makedirs(testpath)
     cmakeopt = ["cmake", "-DCMAKE_C_COMPILER=%s" % clang,
                          "-DCMAKE_CXX_COMPILER=%s" % clangpp,
+                         "-DTEST_SUITE_LLVM_SIZE=%s" % llsize,
                          "-C%s/cmake/caches/O3.cmake" % testcfg["test-suite-dir"]]
     if speccfg != None:
       cmakeopt.append("-DTEST_SUITE_SPEC2017_ROOT=%s" % speccfg["installed-dir"])

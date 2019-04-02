@@ -1,3 +1,4 @@
+#!/bin/bash
 params=("$@")
 params2=( ) # -o updated
 i2=0
