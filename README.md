@@ -9,6 +9,7 @@ Preferred environment: Linux
 # Prerequisites
 
 - `git`: required to clone repos
+- `cmake3`: required to build repos
 - `virtualenv2`: required when initializing LLVM Nightly Tests
 - cset: required if `use_cset` is enabled. [NOPASSWD for sudo](https://askubuntu.com/questions/147241/execute-sudo-without-password) should be set as well
 
