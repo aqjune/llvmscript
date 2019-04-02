@@ -1,14 +1,17 @@
 #!/usr/bin/python3
-import os
 import argparse
-import sys
-import json
-import uuid
 import datetime
+import json
+import os
+import random
 import re
-import subprocess
 import smtplib
 import socket
+import stat
+import string
+import subprocess
+import sys
+import uuid
 from subprocess import Popen
 
 
@@ -322,6 +325,7 @@ Type 'python3 run.py <command> help' to get details
       sendMail(cfg, "build", str(args))
 
 
+
   ############################################################
   #              cloning test-suite and lnt
   ############################################################
@@ -373,6 +377,7 @@ Type 'python3 run.py <command> help' to get details
       sendMail(cfg, "testsuite", str(args))
 
 
+
   ############################################################
   #            Building test-suite using cmake
   ############################################################
@@ -388,6 +393,19 @@ Type 'python3 run.py <command> help' to get details
                                   cfg["repo"]["llvm"]["branch"],
                                   cfg["repo"]["clang"]["branch"],
                                   runcfg["buildopt"])
+      assert(not hasAndEquals(runcfg, "emitbc", True))
+      testpath = testpath0
+      num = 1
+      while os.path.exists(os.path.join(orgpath, testpath)):
+        num = num + 1
+        testpath = "%s%d" % (testpath0, num)
+
+    elif hasAndEquals(runcfg, "emitbc", True):
+      testpath0 = "%s-%s-%s-%s-bcafteropt" % (orgpath,
+                                  cfg["repo"]["llvm"]["branch"],
+                                  cfg["repo"]["clang"]["branch"],
+                                  runcfg["buildopt"])
+      assert(not hasAndEquals(runcfg, "emitasm", True))
       testpath = testpath0
       num = 1
       while os.path.exists(os.path.join(orgpath, testpath)):
@@ -413,6 +431,31 @@ Type 'python3 run.py <command> help' to get details
     p = Popen(["sudo", "cset", "shield", "-c", "0"])
     p.wait()
 
+  def _initCCEmitLLVM(self, clang, clangpp):
+    mydir = os.path.dirname(__file__)
+    f = open(os.path.join(mydir, "cc-emit-llvm.sh"), "r")
+    contents = "".join(list(f.readlines()))
+    f.close()
+
+    hexcode = "".join([random.choice(string.ascii_letters) for n in range(8)])
+    ccpath = "/tmp/cc-%s.sh" % hexcode
+    ccc = contents
+    ccc = ccc.replace("[[CLANG]]", clang)
+    f = open(ccpath, "w")
+    f.write(ccc)
+    f.close()
+    os.chmod(ccpath, 0o777)
+
+    cxxpath = "/tmp/cxx-%s.sh" % hexcode
+    ccc = contents
+    ccc = ccc.replace("[[CLANG]]", "\"%s\"" % clangpp)
+    f = open(cxxpath, "w")
+    f.write(ccc)
+    f.close()
+    os.chmod(cxxpath, 0o777)
+
+    return (ccpath, cxxpath)
+
   # Build test-suite by running cmake and make
   def _buildTestSuiteUsingCMake(self, testpath, cfg, testcfg, runcfg, speccfg=None,
                                 runonly=None):
@@ -421,6 +464,10 @@ Type 'python3 run.py <command> help' to get details
     llvmdir = cfg["builds"][runcfg["buildopt"]]["path"]
     clang = "%s/bin/clang" % llvmdir
     clangpp = clang + "++"
+
+    if hasAndEquals(runcfg, "emitbc", True):
+      # Use cc-emit-llvm.sh
+      (clang, clangpp) = self._initCCEmitLLVM(clang, clangpp)
 
     if "libcxx" in cfg["repo"]:
       # Set LD_LIBRARY_PATH
@@ -432,7 +479,7 @@ Type 'python3 run.py <command> help' to get details
                          "-C%s/cmake/caches/O3.cmake" % testcfg["test-suite-dir"]]
     if speccfg != None:
       cmakeopt.append("-DTEST_SUITE_SPEC2017_ROOT=%s" % speccfg["installed-dir"])
-    
+
     cflags = ""
     cxxflags = ""
     if hasAndEquals(runcfg, "emitasm", True):
@@ -526,7 +573,7 @@ Type 'python3 run.py <command> help' to get details
                                      runonly=runonly)
 
     # Of iterations to run
-    if hasAndEquals(runcfg, "emitasm", True):
+    if hasAndEquals(runcfg, "emitasm", True) or hasAndEquals(runcfg, "emitbc", True):
       # No need to run llvm-lit
       itrcnt = 0
     else:
@@ -670,6 +717,7 @@ Type 'python3 run.py <command> help' to get details
     if args.mailcfg:
       cfg = json.load(open(args.mailcfg, "r"))
       sendMail(cfg, "diff", str(args))
+
 
 
   ############################################################
@@ -839,6 +887,7 @@ Type 'python3 run.py <command> help' to get details
     open(args.out, "w").write(s)
 
 
+
   ############################################################
   #                   check config files
   ############################################################
@@ -922,6 +971,10 @@ Type 'python3 run.py <command> help' to get details
                    msg="If use_cset = true, cset_username should be specified.")
       if hasAndEquals(runcfg, "benchmark", True) and hasAndEquals(runcfg, "emitasm", True):
         _errmsg(True, "emitasm and benchmark cannot be both true.")
+      if hasAndEquals(runcfg, "benchmark", True) and hasAndEquals(runcfg, "emitbc", True):
+        _errmsg(True, "emitbc and benchmark cannot be both true.")
+      if hasAndEquals(runcfg, "emitasm", True)   and hasAndEquals(runcfg, "emitbc", True):
+        _errmsg(True, "emitasm and emitbc cannot be both true.")
 
     if args.speccfg:
       fname = args.speccfg
