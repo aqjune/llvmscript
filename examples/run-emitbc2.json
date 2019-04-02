@@ -3,5 +3,5 @@
   "build-threads":1,
   "buildopt":"release",
   "benchmark":false,
-  "emitbc":"afteropt"
+  "emitbc":"beforeopt"
 }

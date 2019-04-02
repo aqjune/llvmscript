@@ -393,18 +393,18 @@ Type 'python3 run.py <command> help' to get details
                                   cfg["repo"]["llvm"]["branch"],
                                   cfg["repo"]["clang"]["branch"],
                                   runcfg["buildopt"])
-      assert(not hasAndEquals(runcfg, "emitbc", True))
+      assert("emitbc" not in runcfg)
       testpath = testpath0
       num = 1
       while os.path.exists(os.path.join(orgpath, testpath)):
         num = num + 1
         testpath = "%s%d" % (testpath0, num)
 
-    elif hasAndEquals(runcfg, "emitbc", True):
-      testpath0 = "%s-%s-%s-%s-bcafteropt" % (orgpath,
+    elif "emitbc" in runcfg:
+      testpath0 = "%s-%s-%s-%s-bc%s" % (orgpath,
                                   cfg["repo"]["llvm"]["branch"],
                                   cfg["repo"]["clang"]["branch"],
-                                  runcfg["buildopt"])
+                                  runcfg["buildopt"], runcfg["emitbc"])
       assert(not hasAndEquals(runcfg, "emitasm", True))
       testpath = testpath0
       num = 1
@@ -431,7 +431,7 @@ Type 'python3 run.py <command> help' to get details
     p = Popen(["sudo", "cset", "shield", "-c", "0"])
     p.wait()
 
-  def _initCCEmitLLVM(self, clang, clangpp):
+  def _initCCEmitLLVM(self, clang, clangpp, noopt):
     mydir = os.path.dirname(__file__)
     f = open(os.path.join(mydir, "cc-emit-llvm.sh"), "r")
     contents = "".join(list(f.readlines()))
@@ -441,6 +441,10 @@ Type 'python3 run.py <command> help' to get details
     ccpath = "/tmp/cc-%s.sh" % hexcode
     ccc = contents
     ccc = ccc.replace("[[CLANG]]", clang)
+    if noopt:
+      ccc = ccc.replace("[[PARAM]]", "-Xclang -disable-llvm-optzns")
+    else:
+      ccc = ccc.replace("[[PARAM]]", "")
     f = open(ccpath, "w")
     f.write(ccc)
     f.close()
@@ -449,6 +453,10 @@ Type 'python3 run.py <command> help' to get details
     cxxpath = "/tmp/cxx-%s.sh" % hexcode
     ccc = contents
     ccc = ccc.replace("[[CLANG]]", "\"%s\"" % clangpp)
+    if noopt:
+      ccc = ccc.replace("[[PARAM]]", "-Xclang -disable-llvm-optzns")
+    else:
+      ccc = ccc.replace("[[PARAM]]", "")
     f = open(cxxpath, "w")
     f.write(ccc)
     f.close()
@@ -465,9 +473,10 @@ Type 'python3 run.py <command> help' to get details
     clang = "%s/bin/clang" % llvmdir
     clangpp = clang + "++"
 
-    if hasAndEquals(runcfg, "emitbc", True):
+    if "emitbc" in runcfg:
       # Use cc-emit-llvm.sh
-      (clang, clangpp) = self._initCCEmitLLVM(clang, clangpp)
+      (clang, clangpp) = self._initCCEmitLLVM(clang, clangpp,
+          True if runcfg["emitbc"] == "beforeopt" else False)
 
     if "libcxx" in cfg["repo"]:
       # Set LD_LIBRARY_PATH
@@ -573,7 +582,7 @@ Type 'python3 run.py <command> help' to get details
                                      runonly=runonly)
 
     # Of iterations to run
-    if hasAndEquals(runcfg, "emitasm", True) or hasAndEquals(runcfg, "emitbc", True):
+    if hasAndEquals(runcfg, "emitasm", True) or "emitbc" in runcfg:
       # No need to run llvm-lit
       itrcnt = 0
     else:
@@ -979,10 +988,13 @@ Type 'python3 run.py <command> help' to get details
                    msg="If use_cset = true, cset_username should be specified.")
       if hasAndEquals(runcfg, "benchmark", True) and hasAndEquals(runcfg, "emitasm", True):
         _errmsg(True, "emitasm and benchmark cannot be both true.")
-      if hasAndEquals(runcfg, "benchmark", True) and hasAndEquals(runcfg, "emitbc", True):
+      if hasAndEquals(runcfg, "benchmark", True) and "emitbc" in runcfg:
         _errmsg(True, "emitbc and benchmark cannot be both true.")
-      if hasAndEquals(runcfg, "emitasm", True)   and hasAndEquals(runcfg, "emitbc", True):
+      if hasAndEquals(runcfg, "emitasm", True)   and "emitbc" in runcfg:
         _errmsg(True, "emitasm and emitbc cannot be both true.")
+      if "emitbc" in runcfg:
+        if not (runcfg["emitbc"] == "beforeopt" or runcfg["emitbc"] == "afteropt"):
+          _errmsg(True, "emitbc should be either \"beforeopt\" or \"afteropt\"")
 
     if args.speccfg:
       fname = args.speccfg
