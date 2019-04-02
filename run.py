@@ -388,39 +388,46 @@ Type 'python3 run.py <command> help' to get details
     while orgpath[-1] == '/':
       orgpath = orgdir[:-1]
 
+    if path_suffix == None:
+      path_suffix = ""
+
     if hasAndEquals(runcfg, "emitasm", True):
-      testpath0 = "%s-%s-%s-%s-asm" % (orgpath,
+      testpath = "%s-%s-%s-%s-asm%s" % (orgpath,
                                   cfg["repo"]["llvm"]["branch"],
                                   cfg["repo"]["clang"]["branch"],
-                                  runcfg["buildopt"])
+                                  runcfg["buildopt"], path_suffix)
       assert("emitbc" not in runcfg)
-      testpath = testpath0
       num = 1
       while os.path.exists(os.path.join(orgpath, testpath)):
         num = num + 1
-        testpath = "%s%d" % (testpath0, num)
+        testpath = "%s-%s-%s-%s-asm%d%s" % (orgpath,
+                                    cfg["repo"]["llvm"]["branch"],
+                                    cfg["repo"]["clang"]["branch"],
+                                    runcfg["buildopt"], num, path_suffix)
 
     elif "emitbc" in runcfg:
-      testpath0 = "%s-%s-%s-%s-bc%s" % (orgpath,
+      testpath = "%s-%s-%s-%s-bc%s%s" % (orgpath,
                                   cfg["repo"]["llvm"]["branch"],
                                   cfg["repo"]["clang"]["branch"],
-                                  runcfg["buildopt"], runcfg["emitbc"])
+                                  runcfg["buildopt"], runcfg["emitbc"],
+                                  path_suffix)
       assert(not hasAndEquals(runcfg, "emitasm", True))
-      testpath = testpath0
       num = 1
       while os.path.exists(os.path.join(orgpath, testpath)):
         num = num + 1
-        testpath = "%s%d" % (testpath0, num)
+        testpath = "%s-%s-%s-%s-bc%s%d%s" % (orgpath,
+                                    cfg["repo"]["llvm"]["branch"],
+                                    cfg["repo"]["clang"]["branch"],
+                                    runcfg["buildopt"], runcfg["emitbc"],
+                                    num, path_suffix)
 
     else:
       strnow = datetime.datetime.now().strftime("%m_%d_%H_%M_%S")
-      testpath = "%s-%s-%s-%s-%s" % (orgpath,
+      testpath = "%s-%s-%s-%s-%s%s" % (orgpath,
                                     cfg["repo"]["llvm"]["branch"],
                                     cfg["repo"]["clang"]["branch"],
-                                    runcfg["buildopt"], strnow)
-
-    if path_suffix:
-      testpath = testpath + path_suffix
+                                    runcfg["buildopt"], strnow,
+                                    path_suffix)
 
     return testpath
 
