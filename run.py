@@ -190,9 +190,16 @@ Type 'python3 run.py <command> help' to get details
     cfg = json.load(f)
     checkLLVMConfigForClone(cfg)
 
+    abssrc = os.path.abspath(cfg["src"])
+    if not os.path.exists(abssrc):
+      os.mkdir(abssrc)
+    elif not os.path.isdir(abssrc):
+      print("%s is not a directory." % abssrc)
+      exit(1)
+
     def _callGitClone (cfg, name):
       repo = cfg["repo"][name]["url"]
-      dest = cfg["src"] + "/" + name
+      dest = os.path.join(abssrc, name)
       branch = None
       depth = None
 
@@ -269,16 +276,17 @@ Type 'python3 run.py <command> help' to get details
 
     options = cfg["builds"][args.build]
 
-    if not os.path.exists(options["path"]):
+    abspath = os.path.abspath(options["path"])
+    if not os.path.exists(abspath):
       try:
-        os.makedirs(options["path"])
+        os.makedirs(abspath)
       except OSError as e:
         print ("Cannot create directory '{0}'.".format(options["path"]))
         exit(1)
 
-    os.chdir(options["path"])
+    os.chdir(abspath)
 
-    cmd = ["cmake", cfg["src"] + "/llvm"]
+    cmd = ["cmake", os.path.join(os.path.abspath(cfg["src"]), "llvm")]
     if args.build == "release":
       cmd.append("-DCMAKE_BUILD_TYPE=Release")
     elif args.build == "relassert":
@@ -847,8 +855,9 @@ Type 'python3 run.py <command> help' to get details
       print("Cannot find %s" % args.dir)
       exit(1)
 
-    if not os.path.exists(os.path.dirname(args.out)):
-      print("Cannot find %s" % os.path.dirname(args.out))
+    outdir = os.path.dirname(args.out)
+    if outdir != "" and not os.path.exists(outdir):
+      print("Cannot find %s" % os.path.dirname(outdir))
       exit(1)
 
     cfg = json.load(open(args.cfg))
