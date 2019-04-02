@@ -41,7 +41,7 @@ Type `python3 run.py` to see available options.
 
 `python3 run.py lnt --cfg examples/llvm.json --testcfg examples/testsuite.json --runcfg examples/run.json`
 
-- Runs Test Suite with LLVM Nightly Tests script
+- (WIP) Runs Test Suite with LLVM Nightly Tests script
 
 
 `python3 run.py spec --cfg examples/llvm.json --testcfg examples/testsuite.json --runcfg examples/run.json --speccfg examples/spec.json --testsuite --runonly CINT2017rate`
