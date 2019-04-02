@@ -284,9 +284,9 @@ Type 'python3 run.py <command> help' to get details
         print ("Cannot create directory '{0}'.".format(options["path"]))
         exit(1)
 
+    cmd = ["cmake", os.path.join(os.path.abspath(cfg["src"]), "llvm")]
     os.chdir(abspath)
 
-    cmd = ["cmake", os.path.join(os.path.abspath(cfg["src"]), "llvm")]
     if args.build == "release":
       cmd.append("-DCMAKE_BUILD_TYPE=Release")
     elif args.build == "relassert":
