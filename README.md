@@ -4,6 +4,7 @@ One-for-all python script for running experiment with LLVM
 
 WIP; don't use this.
 
+Preferred environment: Linux
 
 # Prerequisites
 
@@ -14,6 +15,9 @@ WIP; don't use this.
 
 # Commands
 
+Type `python3 run.py` to see available options.
+
+
 `python3 run.py clone --cfg examples/llvm.json`
 
 - Clones LLVM (as well as Clang and other projects, if mentioned in the config file)
@@ -21,7 +25,7 @@ WIP; don't use this.
 
 `python3 run.py build --cfg examples/llvm.json --build <release/relassert/debug> --core <# of cores to use>`
 
-- Builds LLVM (as well as Clang)
+- Builds LLVM (as well as Clang and other projects)
 
 
 `python3 run.py testsuite --cfg examples/testsuite.json`
