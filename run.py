@@ -832,6 +832,14 @@ Type 'python3 run.py <command> help' to get details
     parser.add_argument('--out', help='Output (as a json file)', action='store', required=True)
     args = parser.parse_args(sys.argv[2:])
 
+    if not os.path.exists(args.dir):
+      print("Cannot find %s" % args.dir)
+      exit(1)
+
+    if not os.path.exists(os.path.dirname(args.out)):
+      print("Cannot find %s" % os.path.dirname(args.out))
+      exit(1)
+
     cfg = json.load(open(args.cfg))
     llvmdir = None
     lcfg = None
