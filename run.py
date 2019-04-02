@@ -906,6 +906,7 @@ Type 'python3 run.py <command> help' to get details
       #results[bcpath] = j
       self._instcount_sum(j, total)
 
+    total["path"] = args.dir
     total["instrs"]["total"] = sum([total["instrs"][k] for k in total["instrs"]])
     total["constexprs"]["total"] = sum([total["constexprs"][k] for k in total["constexprs"]])
     total["intrinsics"]["total"] = sum([total["intrinsics"][k] for k in total["intrinsics"]])
