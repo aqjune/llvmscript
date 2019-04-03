@@ -6,6 +6,7 @@ import json
 import os
 import random
 import re
+import shutil
 import smtplib
 import socket
 import stat
@@ -395,13 +396,7 @@ Type 'python3 run.py <command> help' to get details
   def _getTestSuiteBuildPath(self, cfg, testcfg, runcfg, path_suffix=None):
     orgpath = testcfg["test-suite-dir"]
     if "ramdisk" in runcfg:
-      for f in glob.glob(runcfg["ramdisk"]):
-        shutil.rmtree(f)
-      Popen(["sudo", "-S", "umount", runcfg["ramdisk"]]).wait()
-      Popen(["sudo", "-S", "mkdir", "-p", runcfg["ramdisk"]]).wait()
-      Popen(["sudo", "-S", "mount", "-t", "tmpfs", "-o", "size=2048M",
-            runcfg["ramdisk"]]).wait()
-      orgpath = runcfg["ramdisk"]
+      orgpath = os.path.join(runcfg["ramdisk"], "test-suite")
 
     while orgpath[-1] == '/':
       orgpath = orgdir[:-1]
@@ -599,7 +594,29 @@ Type 'python3 run.py <command> help' to get details
   # Run Test Suite using CMake
   def _runTestSuiteUsingCMake(self, cfg, testcfg, runcfg, runonly,
                               speccfg=None, path_suffix=None):
+    if hasAndEquals(runcfg, "dropcache", True):
+      Popen(["sudo", "-S", "sh", "-c", "echo 1 > /proc/sys/vm/drop_caches"]).wait()
+      Popen(["sudo", "-S", "sh", "-c", "echo 2 > /proc/sys/vm/drop_caches"]).wait()
+      Popen(["sudo", "-S", "sh", "-c", "echo 3 > /proc/sys/vm/drop_caches"]).wait()
+
+    if "ramdisk" in runcfg:
+      for f in glob.glob(runcfg["ramdisk"]):
+        if f == runcfg["ramdisk"]:
+          continue
+        Popen(["sudo", "-S", "rm", "-rf", f]).wait()
+
+      p = Popen(["sudo", "-S", "umount", "-f", runcfg["ramdisk"]])
+      p.wait()
+
+      Popen(["sudo", "-S", "mkdir", "-p", runcfg["ramdisk"]]).wait()
+      cmd = ["sudo", "-S", "mount", "-t", "tmpfs", "-o", "size=2048M",
+             "tmpfs", runcfg["ramdisk"]]
+      p = Popen(cmd)
+      p.wait()
+      assert(p.returncode == 0)
+
     testpath = self._getTestSuiteBuildPath(cfg, testcfg, runcfg, path_suffix)
+    print("++ Path: %s" % testpath)
 
     if hasAndEquals(runcfg, "use_cset", True):
       self._initCSet();
@@ -624,9 +641,9 @@ Type 'python3 run.py <command> help' to get details
     for itr in range(0, itrcnt):
       runonly = runonly if runonly else "."
       if hasAndEquals(runcfg, "dropcache", True):
-        Popen(["sudo", "-S", "sh", "-c", "'echo 1 > /proc/sys/vm/drop_cache'"]).wait()
-        Popen(["sudo", "-S", "sh", "-c", "'echo 2 > /proc/sys/vm/drop_cache'"]).wait()
-        Popen(["sudo", "-S", "sh", "-c", "'echo 3 > /proc/sys/vm/drop_cache'"]).wait()
+        Popen(["sudo", "-S", "sh", "-c", "echo 1 > /proc/sys/vm/drop_caches"]).wait()
+        Popen(["sudo", "-S", "sh", "-c", "echo 2 > /proc/sys/vm/drop_caches"]).wait()
+        Popen(["sudo", "-S", "sh", "-c", "echo 3 > /proc/sys/vm/drop_caches"]).wait()
       self._runLit(testpath, llvmdir, runonly, corecnt)
 
 
