@@ -5,6 +5,8 @@
   "benchmark":true,
   "nobuild":false,
   "iteration":3,
+  "ramdisk":"/mnt/ramdisk",
+  "dropcache":true,
   "use_cset":true,
   "cset_username":"sflab"
 }

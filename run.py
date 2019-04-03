@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 import argparse
 import datetime
+import glob
 import json
 import os
 import random
@@ -393,6 +394,15 @@ Type 'python3 run.py <command> help' to get details
   # Get a path of directory to build test-suite
   def _getTestSuiteBuildPath(self, cfg, testcfg, runcfg, path_suffix=None):
     orgpath = testcfg["test-suite-dir"]
+    if "ramdisk" in runcfg:
+      for f in glob.glob(runcfg["ramdisk"]):
+        shutil.rmtree(f)
+      Popen(["sudo", "-S", "umount", runcfg["ramdisk"]]).wait()
+      Popen(["sudo", "-S", "mkdir", "-p", runcfg["ramdisk"]]).wait()
+      Popen(["sudo", "-S", "mount", "-t", "tmpfs", "-o", "size=2048M",
+            runcfg["ramdisk"]]).wait()
+      orgpath = runcfg["ramdisk"]
+
     while orgpath[-1] == '/':
       orgpath = orgdir[:-1]
 
@@ -613,6 +623,10 @@ Type 'python3 run.py <command> help' to get details
 
     for itr in range(0, itrcnt):
       runonly = runonly if runonly else "."
+      if hasAndEquals(runcfg, "dropcache", True):
+        Popen(["sudo", "-S", "sh", "-c", "'echo 1 > /proc/sys/vm/drop_cache'"]).wait()
+        Popen(["sudo", "-S", "sh", "-c", "'echo 2 > /proc/sys/vm/drop_cache'"]).wait()
+        Popen(["sudo", "-S", "sh", "-c", "'echo 3 > /proc/sys/vm/drop_cache'"]).wait()
       self._runLit(testpath, llvmdir, runonly, corecnt)
 
 
