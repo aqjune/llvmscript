@@ -3,6 +3,7 @@ import argparse
 import datetime
 import glob
 import json
+import multiprocessing
 import os
 import random
 import re
@@ -317,15 +318,17 @@ Type 'python3 run.py <command> help' to get details
 
     # Now build
     cmd = ["cmake", "--build", "."]
-    addedArg = False
-    
+    buildarg = []
+    corecnt = multiprocessing.cpu_count()
+
     if args.target:
-      cmd = cmd + ["--"] + args.target.split(',')
-      addedArg = True
+      buildarg = args.target.split(',')
 
     if args.core:
-      cmd = cmd + ([] if addedArg else ["--"]) + ["-j{}".format(str(args.core))]
-      addedArg = True
+      corecnt = args.core
+
+    buildarg = buildarg + ["-j%d" % corecnt]
+    cmd = cmd + ["--"] + buildarg
 
     p = Popen(cmd)
     p.wait()
@@ -695,34 +698,45 @@ Type 'python3 run.py <command> help' to get details
   # (e.g. assembly)
   ##
   def diff(self):
-    parser = newParser("diff", llvm=True, llvm2=True, testsuite=True, run=True)
-    parser.add_argument('--diffonly', action="store_true",
-        help='Use already built test-suite to generate diff')
+    parser = newParser("diff", llvm=True, llvm2=True, testsuite=True, run=True,
+        sendmail=True, optionals=["sendmail", "testsuite"])
+    parser.add_argument('--diff', action="store",
+        help='Use pre-built test-suites to generate diff (format: dir1,dir2)')
     parser.add_argument('--out', help='Output file path', required=True,
                         action='store')
     args = parser.parse_args(sys.argv[2:])
 
     cfg1 = json.load(open(args.cfg))
     cfg2 = json.load(open(args.cfg2))
-    testcfg = json.load(open(args.testcfg))
     runcfg = json.load(open(args.runcfg))
 
-    assert(hasAndEquals(runcfg, "emitasm", True))
+    if args.diff:
+      paths = args.diff.split(',')
+      testpath1 = paths[0]
+      testpath2 = paths[1]
+    else:
+      # Build test-suite from scratch.
+      assert(args.testcfg)
+      testcfg = json.load(open(args.testcfg))
 
-    testpath1 = self._getTestSuiteBuildPath(cfg1, testcfg, runcfg)
-    testpath2 = self._getTestSuiteBuildPath(cfg2, testcfg, runcfg)
+      assert(hasAndEquals(runcfg, "emitasm", True))
 
-    if hasAndEquals(runcfg, "use_cset", True):
-      self._initCSet();
+      testpath1 = self._getTestSuiteBuildPath(cfg1, testcfg, runcfg)
+      testpath2 = self._getTestSuiteBuildPath(cfg2, testcfg, runcfg)
 
-    # Build test-suites if necessary
-    if not args.diffonly:
+      if hasAndEquals(runcfg, "use_cset", True):
+        self._initCSet();
+
       self._buildTestSuiteUsingCMake(testpath1, cfg1, testcfg, runcfg)
       self._buildTestSuiteUsingCMake(testpath2, cfg2, testcfg, runcfg)
 
-    corecnt = runcfg["threads"] if "threads" in runcfg else 1
+    corecnt = multiprocessing.cpu_count()
+    if args.runcfg:
+      corecnt = runcfg["threads"] if "threads" in runcfg else 1
+
     llvmdir1 = cfg1["builds"][runcfg["buildopt"]]["path"]
     llvmdir2 = cfg2["builds"][runcfg["buildopt"]]["path"]
+    # This is needed to get test list
     self._runLit(testpath1, llvmdir1, None, corecnt, noExecute=True)
     self._runLit(testpath2, llvmdir2, None, corecnt, noExecute=True)
 
