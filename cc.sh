@@ -13,5 +13,5 @@ for ((i=0; i < $#; i++)); do
   fi
 done
 
-[[CLANG]] -c -emit-llvm [[PARAM]] ${params2[@]} -o "${dest}.bc"
+[[CLANG]] [[PARAM]] ${params2[@]} -o "${dest}.[[EXT]]"
 [[CLANG]] ${params[@]}
