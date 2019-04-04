@@ -451,32 +451,39 @@ Type 'python3 run.py <command> help' to get details
     p = Popen(["sudo", "cset", "shield", "-c", "0"])
     p.wait()
 
-  def _initCCEmitLLVM(self, clang, clangpp, noopt):
+  def _initCCScript(self, clang, clangpp, noopt, emitllvm):
     mydir = os.path.dirname(__file__)
-    f = open(os.path.join(mydir, "cc-emit-llvm.sh"), "r")
+    f = open(os.path.join(mydir, "cc.sh"), "r")
     contents = "".join(list(f.readlines()))
     f.close()
 
+    def _update(ccc, clang):
+      ccc = ccc.replace("[[CLANG]]", clang)
+      if emitllvm:
+        if noopt:
+          ccc = ccc.replace("[[PARAM]]", "-c -emit-llvm -Xclang -disable-llvm-optzns")
+        else:
+          ccc = ccc.replace("[[PARAM]]", "-c -emit-llvm")
+        ccc = ccc.replace("[[EXT]]", "bc")
+      else:
+        if noopt:
+          ccc = ccc.replace("[[PARAM]]", "-S -c -Xclang -disable-llvm-optzns")
+        else:
+          ccc = ccc.replace("[[PARAM]]", "-S -c")
+        ccc = ccc.replace("[[EXT]]", "s")
+      return ccc
+
     hexcode = "".join([random.choice(string.ascii_letters) for n in range(8)])
+
     ccpath = "/tmp/cc-%s.sh" % hexcode
-    ccc = contents
-    ccc = ccc.replace("[[CLANG]]", clang)
-    if noopt:
-      ccc = ccc.replace("[[PARAM]]", "-Xclang -disable-llvm-optzns")
-    else:
-      ccc = ccc.replace("[[PARAM]]", "")
+    ccc = _update(contents, clang)
     f = open(ccpath, "w")
     f.write(ccc)
     f.close()
     os.chmod(ccpath, 0o777)
 
     cxxpath = "/tmp/cxx-%s.sh" % hexcode
-    ccc = contents
-    ccc = ccc.replace("[[CLANG]]", "\"%s\"" % clangpp)
-    if noopt:
-      ccc = ccc.replace("[[PARAM]]", "-Xclang -disable-llvm-optzns")
-    else:
-      ccc = ccc.replace("[[PARAM]]", "")
+    ccc = _update(contents, clangpp)
     f = open(cxxpath, "w")
     f.write(ccc)
     f.close()
@@ -494,10 +501,12 @@ Type 'python3 run.py <command> help' to get details
     clangpp = clang + "++"
     llsize = "%s/bin/llvm-size" % llvmdir
 
+    # Use cc.sh
     if "emitbc" in runcfg:
-      # Use cc-emit-llvm.sh
-      (clang, clangpp) = self._initCCEmitLLVM(clang, clangpp,
-          True if runcfg["emitbc"] == "beforeopt" else False)
+      (clang, clangpp) = self._initCCScript(clang, clangpp,
+          (True if runcfg["emitbc"] == "beforeopt" else False), True)
+    elif hasAndEquals(runcfg, "emitasm", True):
+      (clang, clangpp) = self._initCCScript(clang, clangpp, False, False)
 
     if "libcxx" in cfg["repo"]:
       # Set LD_LIBRARY_PATH
@@ -513,9 +522,6 @@ Type 'python3 run.py <command> help' to get details
 
     cflags = ""
     cxxflags = ""
-    if hasAndEquals(runcfg, "emitasm", True):
-      cflags   = cflags + " -save-temps"
-      cxxflags = cxxflags + " -save-temps"
 
     if "libcxx" in cfg["repo"]:
       cxxflags = cxxflags + " -stdlib=libc++"
@@ -560,10 +566,6 @@ Type 'python3 run.py <command> help' to get details
         makedir = makedir + "/" + os.path.dirname(runonly)
       else:
         makedir = makedir + "/" + runonly
-
-    if hasAndEquals(runcfg, "emitasm", True):
-      # Ignore compile failures
-      makeopt.append("-i")
 
     # Run make.
     p = Popen(makeopt, cwd=makedir)
