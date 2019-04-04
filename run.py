@@ -705,10 +705,10 @@ Type 'python3 run.py <command> help' to get details
     testcfg = json.load(open(args.testcfg))
     runcfg = json.load(open(args.runcfg))
 
+    assert(hasAndEquals(runcfg, "emitasm", True))
+
     testpath1 = self._getTestSuiteBuildPath(cfg1, testcfg, runcfg)
     testpath2 = self._getTestSuiteBuildPath(cfg2, testcfg, runcfg)
-
-    assert(hasAndEquals(runcfg, "emitasm", True))
 
     if hasAndEquals(runcfg, "use_cset", True):
       self._initCSet();
@@ -1036,6 +1036,7 @@ Type 'python3 run.py <command> help' to get details
       if hasAndEquals(runcfg, "use_cset", True):
         _checkAttr("cset_username" in runcfg, "cset_username", fname, True,
                    msg="If use_cset = true, cset_username should be specified.")
+
       if hasAndEquals(runcfg, "benchmark", True) and hasAndEquals(runcfg, "emitasm", True):
         _errmsg(True, "emitasm and benchmark cannot be both true.")
       if hasAndEquals(runcfg, "benchmark", True) and "emitbc" in runcfg:
