@@ -167,7 +167,6 @@ Commands:
   spec      Run SPEC benchmark
   instcount Get statistics of the number of LLVM assembly instructions
   diff      Compile test-suite with two compilers and compare assemblies
-            (NOTE: this option is experimental)
   check     Check config files
 
 Type 'python3 run.py <command> help' to get details
