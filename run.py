@@ -546,7 +546,7 @@ Type 'python3 run.py <command> help' to get details
       cmakeopt = cmakeopt + ["-DTEST_SUITE_BENCHMARKING_ONLY=On"]
       if runcfg["use_cset"]:
         # RunSafely.sh should be properly modified in advance
-        rsf = open(os.join(testpath, "RunSafely"), "r")
+        rsf = open(os.path.join(testcfg["test-suite-dir"], "RunSafely.sh"), "r")
         lines = [l.strip() for l in rsf.readlines()]
         if lines[196] == "$TIMEIT $TIMEITFLAGS $COMMAND":
           print("To enable use_cset, please update line 197 at %s/RunSafely.sh with following:" % testpath)
