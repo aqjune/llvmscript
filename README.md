@@ -10,7 +10,7 @@ Preferred environment: Linux
 
 - `git`: required to clone repos
 - `cmake3`, `make`, `g++`: required to build repos
-- `virtualenv2`: required when initializing LLVM Nightly Tests
+- `virtualenv2`, `python-dev`: required when initializing LLVM Nightly Tests
 - [NOPASSWD for sudo](https://askubuntu.com/questions/147241/execute-sudo-without-password): if you want to use cset/ramdisk/dropcache.
 - [cset](https://stackoverflow.com/questions/11111852/how-to-shield-a-cpu-from-the-linux-scheduler-prevent-it-scheduling-threads-onto): if you want to use cset.
 
