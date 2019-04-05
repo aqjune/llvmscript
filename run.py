@@ -545,9 +545,14 @@ Type 'python3 run.py <command> help' to get details
     if runcfg["benchmark"]:
       cmakeopt = cmakeopt + ["-DTEST_SUITE_BENCHMARKING_ONLY=On"]
       if runcfg["use_cset"]:
-        # cmakeopt = cmakeopt + ["-DTEST_SUITE_RUN_UNDER=sudo cset shield --user=%s --exec -- " % runcfg["cset_username"]]
-        pass # RunSafely.sh should be properly modified in advance
-             # TODO: Check RunSafely.sh at here
+        # RunSafely.sh should be properly modified in advance
+        rsf = open(os.join(testpath, "RunSafely"), "r")
+        lines = [l.strip() for l in rsf.readlines()]
+        if lines[196] == "$TIMEIT $TIMEITFLAGS $COMMAND":
+          print("To enable use_cset, please update line 197 at %s/RunSafely.sh with following:" % testpath)
+          print("\tsudo cset shield --user=sflab --exec $TIMEIT -- $TIMEITFLAGS $COMMAND")
+          exit(1)
+        rsf.close()
       else:
         cmakeopt = cmakeopt + ["-DTEST_SUITE_RUN_UNDER=taskset -c 1"]
     cmakeopt.append(testcfg["test-suite-dir"])
