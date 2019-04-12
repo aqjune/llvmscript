@@ -368,7 +368,7 @@ Type 'python3 run.py <command> help' to get details
 
     # Now, create virtualenv.
     venv_dir = cfg["virtualenv-dir"]
-    p = Popen(["virtualenv2", venv_dir])
+    p = Popen(["virtualenv", "-p", "python2", venv_dir])
     p.wait()
 
     # Install LNT at virtualenv.
