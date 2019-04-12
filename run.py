@@ -166,8 +166,9 @@ Commands:
   lnt       Run test-suite using lnt
   spec      Run SPEC benchmark
   instcount Get statistics of the number of LLVM assembly instructions
-  diff      Compile test-suite with two compilers and compare assemblies
-  check     Check config files
+  diff      Compile test-suite with two compilers and compare assembly files
+  filter    Filter test-suite result with assembly diff
+  check     Check wellformedness of config files
 
 Type 'python3 run.py <command> help' to get details
 ''')
@@ -697,10 +698,12 @@ Type 'python3 run.py <command> help' to get details
       outs[i] = outs[i][len(prefix):]
     return outs
 
-  ##
-  # Compile Test Suite using two compilers and get diff of outputs
-  # (e.g. assembly)
-  ##
+
+
+  ############################################################
+  #    Diff assembly outputs after running test-suite
+  #    with two LLVMs
+  ############################################################
   def diff(self):
     parser = newParser("diff", llvm=True, llvm2=True, testsuite=True, run=True,
         sendmail=True, optionals=["sendmail", "testsuite"])
@@ -972,6 +975,93 @@ Type 'python3 run.py <command> help' to get details
     total["intrinsics"]["total"] = sum([total["intrinsics"][k] for k in total["intrinsics"]])
     s = json.dumps(total, indent=2)
     open(args.out, "w").write(s)
+
+
+
+  ############################################################
+  #  Filter test-suite result (json) with assembly diff list
+  ############################################################
+  def filter(self):
+    parser = argparse.ArgumentParser(description = 'Arguments for filter command')
+    parser.add_argument('--json', action="store",
+        help='The result of test-suite run', required=True)
+    parser.add_argument('--diff', action="store",
+        help='Assembly diff file', required=True)
+    parser.add_argument('--out', help='Output file path', required=True,
+                        action='store')
+    args = parser.parse_args(sys.argv[2:])
+
+    difflines = open(args.diff, "r").readlines()
+    diffs = []
+    for l in difflines:
+      ll = l.split()
+      filename, hasdiff = ll[0], ll[1]
+      hasdiff = hasdiff.strip()
+
+      if filename.endswith(".c.o.s"):
+        filename = filename[:-len(".c.o.s")]
+      elif filename.endswith(".cpp.o.s"):
+        filename = filename[:-len(".cpp.o.s")]
+      elif filename.endswith(".bc.o.s"):
+        filename = filename[:-len(".bc.o.s")]
+      elif filename.endswith(".cc.o.s"):
+        filename = filename[:-len(".cc.o.s")]
+      elif filename.endswith(".cxx.o.s"):
+        filename = filename[:-len(".cxx.o.s")]
+      else:
+        assert False, filename
+
+      assert(hasdiff == "YESDIFF" or hasdiff == "NODIFF")
+
+      diffs.append((filename, True if hasdiff == "YESDIFF" else False))
+
+    data = json.load(open(args.json, "r"))
+    results = data["tests"]
+    newresults = []
+
+    for i in range(0, len(results)):
+      rawname = results[i]["name"]
+
+      assert(rawname.startswith("test-suite :: "))
+      rawname = rawname[len("test-suite :: "):]
+      if not rawname.startswith("MicroBenchmarks"):
+        assert rawname.endswith(".test"), rawname
+      name = rawname[:rawname.rfind(".test")]
+
+      if name.startswith("SingleSource"):
+        # SingleSource/AA/TEST => SingleSource/AA/CMakeFiles/TEST.dir/test.extension
+        idx = name.rfind("/")
+        testname = name[name.rfind("/") + 1:]
+        newname = name[:idx] + "/CMakeFiles/" + testname + ".dir/" + testname
+        diffs_filtered = [x for x in diffs if x[0] == newname]
+
+        if diffs_filtered == []:
+          # Remove the filename and retry
+          newname = newname[:newname.rfind("/")]
+          diffs_filtered = [x for x in diffs if x[0].startswith(newname)]
+
+        assert(len(diffs_filtered) == 1)
+
+      else:
+        # MultiSource/AA/TEST => MultiSource/AA/CMakeFiles/TEST.dir/*
+        idx = name.rfind("/")
+        testname = name[name.rfind("/") + 1:]
+        newname = name[:idx] + "/CMakeFiles/" + testname + ".dir/"
+        #print(newname)
+        diffs_filtered = [x for x in diffs if x[0].startswith(newname)]
+        assert(len(diffs_filtered) > 0)
+
+      #print(diffs_filtered)
+
+      hasdiff = False
+      for itm in diffs_filtered:
+        hasdiff = hasdiff or itm[1]
+      if hasdiff:
+        print("-- %s: HAS DIFF!" % rawname)
+        newresults.append(results[i])
+
+    data["tests"] = newresults
+    json.dump(data, open(args.out, "w"), indent=2)
 
 
 
