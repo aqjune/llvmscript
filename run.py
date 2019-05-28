@@ -251,6 +251,8 @@ Type 'python3 run.py <command> help' to get details
       pipes.append(_callGitClone(cfg, "libcxx"))
     if "libcxxabi" in cfg["repo"]:
       pipes.append(_callGitClone(cfg, "libcxxabi"))
+    if "clang-tools-extra" in cfg["repo"]:
+      pipes.append(_callGitClone(cfg, "clang-tools-extra"))
     for p in pipes:
       p.wait()
 
@@ -309,9 +311,14 @@ Type 'python3 run.py <command> help' to get details
       externals = externals + ["libcxx"]
     if "libcxxabi" in cfg["repo"]:
       externals = externals + ["libcxxabi"]
+    if "clang-tools-extra" in cfg["repo"]:
+      externals = externals + ["clang-tools-extra"]
 
     if len(externals) != 0:
       cmd.append("-DLLVM_ENABLE_PROJECTS=%s" % ";".join(externals))
+    if "clang-tools-extra" in cfg["repo"]:
+      cmd.append("-DLLVM_TOOL_CLANG_TOOLS_EXTRA_BUILD=On")
+      #cmd.append("-DCLANGD_BUILD_XPC=Off") # clangd 8.0 does not compile
 
     p = Popen(cmd)
     p.wait()
