@@ -257,6 +257,7 @@ Type 'python3 run.py <command> help' to get details
     checkLLVMConfigForBuild(cfg, args.type)
 
     options = cfg["builds"][args.type]
+    prevpath = os.getcwd()
 
     abspath = os.path.abspath(options["path"])
     if not os.path.exists(abspath):
@@ -266,7 +267,7 @@ Type 'python3 run.py <command> help' to get details
         print ("Cannot create directory '{0}'.".format(options["path"]))
         exit(1)
 
-    cmd = ["cmake", os.path.abspath(cfg["src"])]
+    cmd = ["cmake", "-GNinja", os.path.join(os.path.abspath(cfg["src"]), "llvm")]
     os.chdir(abspath)
 
     if args.type == "release":
@@ -303,6 +304,7 @@ Type 'python3 run.py <command> help' to get details
     p.wait()
 
     if args.mailcfg:
+      os.chdir(prevpath)
       cfg = json.load(open(args.mailcfg, "r"))
       sendMail(cfg, "build", str(args))
 
