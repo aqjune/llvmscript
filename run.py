@@ -18,45 +18,30 @@ import uuid
 from subprocess import Popen
 
 
+errmsg = lambda attrname: "Attribute %s does not exist%" % \
+    (attrname, " in file %s" % filename if filename else "")
+
 # Check whether given config is valid
 def checkLLVMConfigForClone(js, filename=None):
-  errmsg = lambda attrname: "Attribute %s does not exist%" % \
-      (attrname, " in file %s" % filename if filename else "")
-  # Destination of src should exist
   assert ("src" in js), errmsg("src")
-  # Should have cloninig repo info
   assert ("repo" in js), errmsg("repo")
-  # LLVM repo should exist
-  assert ("llvm" in js["repo"]), errmsg("repo/llvm")
-  # For each repo, url should exist
-  for i in js["repo"]:
-    assert ("url" in js["repo"][i]), errmsg("repo/%s/url" % i)
+  assert ("branch" in js), errmsg("branch")
 
 def checkLLVMConfigForBuild(js, buildopt,
                             filename=None):
-  errmsg = lambda attrname: "Attribute %s does not exist%" % \
-      (attrname, " in file %s" % filename if filename else "")
-  # Destination of src should exist
   assert ("src" in js), errmsg("src")
-  # Should have build options
   assert ("builds" in js), errmsg("builds")
   assert (buildopt in js["builds"]), errmsg("builds/%s" % buildopt)
   assert ("path" in js["builds"][buildopt]), errmsg("builds/%s/path" % buildopt)
+  assert ("projects" in js["builds"][buildopt]), errmsg("builds/%s/projects" % buildopt)
 
 def checkLNTConfigForClone(js, filename=None):
-  errmsg = lambda attrname: "Attribute %s does not exist%" % \
-      (attrname, " in file %s" % filename if filename else "")
-  # Destination of lnt/test-suite/virtualenv should exist
   assert ("lnt-dir" in js), errmsg("lnt-dir")
   assert ("test-suite-dir" in js), errmsg("test-suite-dir")
   assert ("virtualenv-dir" in js), errmsg("virtualenv-dir")
-  # Should have cloninig repo info
-  assert ("repo" in js), errmsg("repo")
-  # LLVM repo should exist
-  assert ("lnt" in js["repo"]), errmsg("repo/lnt")
-  assert ("test-suite" in js["repo"]), errmsg("repo/test-suite")
-  for i in js["repo"]:
-    assert ("url" in js["repo"][i]), errmsg("repo/%s/url" % i)
+  for i in ["lnt", "test-suite"]:
+    assert (i in js), errmsg(i)
+    assert ("url" in js[i]), errmsg("%s/url" % i)
 
 
 def newParser(cmd, llvm=False, llvm2=False, testsuite=False, run=False,
@@ -166,7 +151,7 @@ Commands:
   lnt       Run test-suite using lnt
   spec      Run SPEC benchmark
   instcount Get statistics of the number of LLVM assembly instructions
-  diff      Compile test-suite with two compilers and compare assembly files
+  diff      Compile test-suite with different clangs and compare assembly files
   filter    Filter test-suite result with assembly diff
   check     Check wellformedness of config files
 
@@ -183,6 +168,9 @@ Type 'python3 run.py <command> help' to get details
 
 
 
+  ############################################################
+  #                       clone llvm
+  ############################################################
   def clone(self):
     parser = newParser("clone", llvm=True, sendmail=True, optionals=["sendmail"])
     parser.add_argument('--depth', help='commit depth to clone (-1 means inf)', nargs='?', const=-1, type=int)
@@ -200,14 +188,12 @@ Type 'python3 run.py <command> help' to get details
       print("%s is not a directory." % abssrc)
       exit(1)
 
-    def _callGitClone (cfg, name):
-      repo = cfg["repo"][name]["url"]
-      dest = os.path.join(abssrc, name)
+    def _callGitClone (cfg):
+      repo = cfg["repo"]
+      branch = cfg["branch"]
+      dest = abssrc
       branch = None
       depth = None
-
-      if "branch" in cfg["repo"][name]:
-        branch = cfg["repo"][name]["branch"]
 
       if args.depth:
         depth = args.depth
@@ -242,28 +228,20 @@ Type 'python3 run.py <command> help' to get details
 
       return startGitClone(repo, dest, branch, depth)
 
-    pipes = []
-    pipes.append(_callGitClone(cfg, "llvm"))
-    pipes.append(_callGitClone(cfg, "clang"))
-    if "compiler-rt" in cfg["repo"]:
-      pipes.append(_callGitClone(cfg, "compiler-rt"))
-    if "libcxx" in cfg["repo"]:
-      pipes.append(_callGitClone(cfg, "libcxx"))
-    if "libcxxabi" in cfg["repo"]:
-      pipes.append(_callGitClone(cfg, "libcxxabi"))
-    if "clang-tools-extra" in cfg["repo"]:
-      pipes.append(_callGitClone(cfg, "clang-tools-extra"))
-    for p in pipes:
-      p.wait()
+    p = _callGitClone(cfg)
+    p.wait()
 
     if args.mailcfg:
       cfg = json.load(open(args.mailcfg, "r"))
       sendMail(cfg, "clone", str(args))
 
 
+  ############################################################
+  #                      build llvm
+  ############################################################
   def build(self):
     parser = newParser("build", llvm=True, sendmail=True, optionals=["sendmail"])
-    parser.add_argument('--build', help='release/relassert/debug', action='store', required=True)
+    parser.add_argument('--type', help='release/relassert/debug', action='store', required=True)
     parser.add_argument('--core', help='# of cores to use', nargs='?', const=1, type=int)
     parser.add_argument('--target', help='targets, separated by comma (ex: opt,clang,llvm-as)',
                         action='store')
@@ -272,14 +250,14 @@ Type 'python3 run.py <command> help' to get details
     cfgpath = args.cfg
     f = open(cfgpath)
     cfg = json.load(f)
-    
-    if args.build != "release" and args.build != "relassert" and args.build != "debug":
-      print ("Unknown build option: {}; should be release / relassert / debug.".format(args.build))
+
+    if args.type != "release" and args.type != "relassert" and args.type != "debug":
+      print ("Unknown build option: {}; should be release / relassert / debug.".format(args.type))
       exit(1)
 
-    checkLLVMConfigForBuild(cfg, args.build)
+    checkLLVMConfigForBuild(cfg, args.type)
 
-    options = cfg["builds"][args.build]
+    options = cfg["builds"][args.type]
 
     abspath = os.path.abspath(options["path"])
     if not os.path.exists(abspath):
@@ -289,34 +267,21 @@ Type 'python3 run.py <command> help' to get details
         print ("Cannot create directory '{0}'.".format(options["path"]))
         exit(1)
 
-    cmd = ["cmake", os.path.join(os.path.abspath(cfg["src"]), "llvm")]
+    cmd = ["cmake", os.path.abspath(cfg["src"])]
     os.chdir(abspath)
 
-    if args.build == "release":
+    if args.type == "release":
       cmd.append("-DCMAKE_BUILD_TYPE=Release")
-    elif args.build == "relassert":
+    elif args.type == "relassert":
       cmd = cmd + ["-DCMAKE_BUILD_TYPE=Release", "-DLLVM_ENABLE_ASSERTIONS=On"]
-    elif args.build == "debug":
+    elif args.type == "debug":
       cmd.append("-DCMAKE_BUILD_TYPE=Debug")
 
     if hasAndEquals(options, "sharedlib", True):
       cmd.append("-DBUILD_SHARED_LIBS=1")
 
-    externals = []
-    if "clang" in cfg["repo"]:
-      externals = externals + ["clang"]
-    if "compiler-rt" in cfg["repo"]:
-      externals = externals + ["compiler-rt"]
-    if "libcxx" in cfg["repo"]:
-      externals = externals + ["libcxx"]
-    if "libcxxabi" in cfg["repo"]:
-      externals = externals + ["libcxxabi"]
-    if "clang-tools-extra" in cfg["repo"]:
-      externals = externals + ["clang-tools-extra"]
-
-    if len(externals) != 0:
-      cmd.append("-DLLVM_ENABLE_PROJECTS=%s" % ";".join(externals))
-    if "clang-tools-extra" in cfg["repo"]:
+    cmd.append("-DLLVM_ENABLE_PROJECTS=%s" % cfg["builds"][args.type]["projects"])
+    if "clang-tools-extra" in cfg["builds"][args.type]["projects"].split(";"):
       cmd.append("-DLLVM_TOOL_CLANG_TOOLS_EXTRA_BUILD=On")
       #cmd.append("-DCLANGD_BUILD_XPC=Off") # clangd 8.0 does not compile
 
@@ -324,7 +289,6 @@ Type 'python3 run.py <command> help' to get details
     p.wait()
 
     # Now build
-    cmd = ["cmake", "--build", "."]
     buildarg = []
     corecnt = multiprocessing.cpu_count()
 
@@ -334,8 +298,7 @@ Type 'python3 run.py <command> help' to get details
     if args.core:
       corecnt = args.core
 
-    buildarg = buildarg + ["-j%d" % corecnt]
-    cmd = cmd + ["--"] + buildarg
+    cmd = ["ninja", "-j%d" % corecnt] + buildarg
 
     p = Popen(cmd)
     p.wait()
@@ -347,7 +310,7 @@ Type 'python3 run.py <command> help' to get details
 
 
   ############################################################
-  #              cloning test-suite and lnt
+  #              clone test-suite and lnt
   ############################################################
   def testsuite(self):
     parser = newParser("testsuite", testsuite=True, sendmail=True, optionals=["sendmail"])
@@ -359,12 +322,12 @@ Type 'python3 run.py <command> help' to get details
     checkLNTConfigForClone(cfg);
 
     def _callGitClone(cfg, name):
-      repo = cfg["repo"][name]["url"]
+      repo = cfg[name]["url"]
       dest = cfg[name + "-dir"]
       branch = None
 
-      if "branch" in cfg["repo"][name]:
-        branch = cfg["repo"][name]["branch"]
+      if "branch" in cfg[name]:
+        branch = cfg[name]["branch"]
 
       return startGitClone(repo, dest, branch, None)
 
@@ -399,7 +362,7 @@ Type 'python3 run.py <command> help' to get details
 
 
   ############################################################
-  #            Building test-suite using cmake
+  #                Build test-suite using cmake
   ############################################################
 
   # Get a path of directory to build test-suite
@@ -409,49 +372,28 @@ Type 'python3 run.py <command> help' to get details
       orgpath = os.path.join(runcfg["ramdisk"], "test-suite")
 
     while orgpath[-1] == '/':
-      orgpath = orgdir[:-1]
+      orgpath = orgpath[:-1]
 
     if path_suffix == None:
       path_suffix = ""
 
     if hasAndEquals(runcfg, "emitasm", True):
-      testpath = "%s-%s-%s-%s-asm%s" % (orgpath,
-                                  cfg["repo"]["llvm"]["branch"],
-                                  cfg["repo"]["clang"]["branch"],
-                                  runcfg["buildopt"], path_suffix)
+      testpath = "%s-%s-%s-asm%s" % (orgpath, cfg["branch"], runcfg["buildopt"],
+                                     path_suffix)
       assert("emitbc" not in runcfg)
-      num = 1
-      while os.path.exists(os.path.join(orgpath, testpath)):
-        num = num + 1
-        testpath = "%s-%s-%s-%s-asm%d%s" % (orgpath,
-                                    cfg["repo"]["llvm"]["branch"],
-                                    cfg["repo"]["clang"]["branch"],
-                                    runcfg["buildopt"], num, path_suffix)
 
     elif "emitbc" in runcfg:
-      testpath = "%s-%s-%s-%s-bc%s%s" % (orgpath,
-                                  cfg["repo"]["llvm"]["branch"],
-                                  cfg["repo"]["clang"]["branch"],
-                                  runcfg["buildopt"], runcfg["emitbc"],
-                                  path_suffix)
+      testpath = "%s-%s-%s-bc%s%s" % (orgpath, cfg["branch"], runcfg["buildopt"],
+                                      runcfg["emitbc"], path_suffix)
       assert(not hasAndEquals(runcfg, "emitasm", True))
-      num = 1
-      while os.path.exists(os.path.join(orgpath, testpath)):
-        num = num + 1
-        testpath = "%s-%s-%s-%s-bc%s%d%s" % (orgpath,
-                                    cfg["repo"]["llvm"]["branch"],
-                                    cfg["repo"]["clang"]["branch"],
-                                    runcfg["buildopt"], runcfg["emitbc"],
-                                    num, path_suffix)
 
     else:
       strnow = datetime.datetime.now().strftime("%m_%d_%H_%M_%S")
-      testpath = "%s-%s-%s-%s-%s%s" % (orgpath,
-                                    cfg["repo"]["llvm"]["branch"],
-                                    cfg["repo"]["clang"]["branch"],
-                                    runcfg["buildopt"], strnow,
-                                    path_suffix)
+      testpath = "%s-%s-%s-%s%s" % (orgpath, cfg["branch"], runcfg["buildopt"],
+                                    strnow, path_suffix)
 
+    fullpath = os.path.join(orgpath, testpath)
+    assert (not os.path.exists(fullpath)), "Directory already exists: %s" % fullpath
     return testpath
 
   # Initialize cset
@@ -599,7 +541,7 @@ Type 'python3 run.py <command> help' to get details
             "-o", "results%d.json" % resjson_num]
     if noExecute:
       args.append("--no-execute")
-    
+
     if runonly:
       args.append(runonly)
     else:
@@ -1107,15 +1049,6 @@ Type 'python3 run.py <command> help' to get details
       _checkAttr("src" in cfg, "src", fname, True)
       _checkAttr("repo" in cfg, "repo", fname, True)
       _checkAttr("builds" in cfg, "builds", fname, True)
-      _checkAttr("llvm" in cfg["repo"], "repo/llvm", fname, True)
-      _checkAttr("clang" in cfg["repo"], "repo/clang", fname, False,
-                 msg="clang is needed to run test-suite")
-      _checkAttr("compiler-rt" in cfg["repo"], "repo/compiler-rt", fname, False,
-                 msg="compiler-rt is needed to run test-suite with cmake")
-      _checkAttr("libcxx" in cfg["repo"], "repo/libcxx", fname, False,
-                 msg="using libcxx is recommended for consistent environment setting")
-      _checkAttr("libcxxabi" in cfg["repo"], "repo/libcxxabi", fname, False,
-                 msg="using libcxxabi is recommended for consistent environment setting")
 
       for prj in cfg["repo"]:
         _checkAttr("url" in cfg["repo"][prj], "repo/%s/url" % prj, fname, True)
@@ -1134,14 +1067,11 @@ Type 'python3 run.py <command> help' to get details
       _checkAttr("test-suite-dir" in testcfg, "test-suite", fname, True)
       _checkAttr("virtualenv-dir" in testcfg, "virtualenv-dir", fname, False,
                  msg="virtualenv-dir is needed to run test-suite with lnt")
-      _checkAttr("repo" in testcfg, "repo", fname, True)
-      _checkAttr("test-suite" in testcfg["repo"], "repo/test-suite", fname, True)
-      _checkAttr("lnt" in testcfg["repo"], "repo/lnt", fname, False,
-                 msg="repo/lnt is needed to run test-suite with lnt")
 
-      for prj in testcfg["repo"]:
-        _checkAttr("url" in testcfg["repo"][prj], "repo/%s/url" % prj, fname, True)
-        _checkAttr("branch" in testcfg["repo"][prj], "repo/%s/branch" % prj, fname, True)
+      for prj in ["test-suite", "lnt"]:
+        _checkAttr(prj in testcfg, prj, fname, True)
+        _checkAttr("url" in testcfg[prj], "%s/url" % prj, fname, True)
+        _checkAttr("branch" in testcfg[prj], "%s/branch" % prj, fname, True)
 
     if args.runcfg:
       fname = args.runcfg

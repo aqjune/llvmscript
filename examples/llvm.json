@@ -1,39 +1,21 @@
 {
-  "src":"./my-llvm-src",
-  "repo":
-  {
-    "llvm":{
-      "url":"https://github.com/llvm-mirror/llvm.git",
-      "branch":"master"
-    },
-    "clang":{
-      "url":"https://github.com/llvm-mirror/clang.git",
-      "branch":"master"
-    },
-    "compiler-rt":{
-      "url":"https://github.com/llvm-mirror/compiler-rt.git",
-      "branch":"master"
-    },
-    "libcxx":{
-      "url":"https://github.com/llvm-mirror/libcxx.git",
-      "branch":"master"
-    },
-    "libcxxabi":{
-      "url":"https://github.com/llvm-mirror/libcxxabi.git",
-      "branch":"master"
-    }
-  },
+  "src":"./my-llvm-project",
+  "repo":"git@github.com:llvm/llvm-project.git",
+  "branch":"master",
   "builds":{
     "release":{
       "path":"./my-llvm-release",
+      "projects":"llvm;clang;libcxx;libcxxabi;compiler-rt",
       "sharedlib":false
     },
     "relassert":{
       "path":"./my-llvm-releaseassert",
+      "projects":"llvm;clang;libcxx;libcxxabi;compiler-rt",
       "sharedlib":true
     },
     "debug":{
       "path":"./my-llvm-debug",
+      "projects":"llvm",
       "sharedlib":true
     }
   }
