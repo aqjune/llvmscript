@@ -18,30 +18,30 @@ import uuid
 from subprocess import Popen
 
 
-errmsg = lambda attrname: "Attribute %s does not exist%" % \
+errmsg = lambda attrname, filename: "Attribute %s does not exist%s" % \
     (attrname, " in file %s" % filename if filename else "")
 
 # Check whether given config is valid
 def checkLLVMConfigForClone(js, filename=None):
-  assert ("src" in js), errmsg("src")
-  assert ("repo" in js), errmsg("repo")
-  assert ("branch" in js), errmsg("branch")
+  assert ("src" in js), errmsg("src", filename)
+  assert ("repo" in js), errmsg("repo", filename)
+  assert ("branch" in js), errmsg("branch", filename)
 
 def checkLLVMConfigForBuild(js, buildopt,
                             filename=None):
-  assert ("src" in js), errmsg("src")
-  assert ("builds" in js), errmsg("builds")
-  assert (buildopt in js["builds"]), errmsg("builds/%s" % buildopt)
-  assert ("path" in js["builds"][buildopt]), errmsg("builds/%s/path" % buildopt)
-  assert ("projects" in js["builds"][buildopt]), errmsg("builds/%s/projects" % buildopt)
+  assert ("src" in js), errmsg("src", filename)
+  assert ("builds" in js), errmsg("builds", filename)
+  assert (buildopt in js["builds"]), errmsg("builds/%s" % buildopt, filename)
+  assert ("path" in js["builds"][buildopt]), errmsg("builds/%s/path" % buildopt, filename)
+  assert ("projects" in js["builds"][buildopt]), errmsg("builds/%s/projects" % buildopt, filename)
 
 def checkLNTConfigForClone(js, filename=None):
-  assert ("lnt-dir" in js), errmsg("lnt-dir")
-  assert ("test-suite-dir" in js), errmsg("test-suite-dir")
-  assert ("virtualenv-dir" in js), errmsg("virtualenv-dir")
+  assert ("lnt-dir" in js), errmsg("lnt-dir", filename)
+  assert ("test-suite-dir" in js), errmsg("test-suite-dir", filename)
+  assert ("virtualenv-dir" in js), errmsg("virtualenv-dir", filename)
   for i in ["lnt", "test-suite"]:
-    assert (i in js), errmsg(i)
-    assert ("url" in js[i]), errmsg("%s/url" % i)
+    assert (i in js), errmsg(i, filename)
+    assert ("url" in js[i]), errmsg("%s/url" % i, filename)
 
 
 def newParser(cmd, llvm=False, llvm2=False, testsuite=False, run=False,
@@ -93,6 +93,8 @@ def hasAndEquals(d, key, val):
 # depth can be None or -1 (meaning that it is infinite)
 def startGitClone(repo, dest, branch, depth):
   try:
+    print("repo: " + repo)
+    print("dest: " + dest)
     os.makedirs(dest)
     cmds = ["git", "clone", repo, dest]
     if branch != None:
@@ -154,11 +156,12 @@ Commands:
   diff      Compile test-suite with different clangs and compare assembly files
   filter    Filter test-suite result with assembly diff
   check     Check wellformedness of config files
+  mailtest  Test the mail account
 
 Type 'python3 run.py <command> help' to get details
 ''')
 
-    parser.add_argument('command', help='clone/build/lntclone/spec2017')
+    parser.add_argument('command', help='')
     args = parser.parse_args(sys.argv[1:2])
     if not hasattr(self, args.command):
       print ("Unrecognized command")
@@ -182,11 +185,6 @@ Type 'python3 run.py <command> help' to get details
     checkLLVMConfigForClone(cfg)
 
     abssrc = os.path.abspath(cfg["src"])
-    if not os.path.exists(abssrc):
-      os.mkdir(abssrc)
-    elif not os.path.isdir(abssrc):
-      print("%s is not a directory." % abssrc)
-      exit(1)
 
     def _callGitClone (cfg):
       repo = cfg["repo"]
@@ -234,6 +232,7 @@ Type 'python3 run.py <command> help' to get details
     if args.mailcfg:
       cfg = json.load(open(args.mailcfg, "r"))
       sendMail(cfg, "clone", str(args))
+
 
 
   ############################################################
@@ -1050,10 +1049,6 @@ Type 'python3 run.py <command> help' to get details
       _checkAttr("repo" in cfg, "repo", fname, True)
       _checkAttr("builds" in cfg, "builds", fname, True)
 
-      for prj in cfg["repo"]:
-        _checkAttr("url" in cfg["repo"][prj], "repo/%s/url" % prj, fname, True)
-        _checkAttr("branch" in cfg["repo"][prj], "repo/%s/branch" % prj, fname, True)
-
       for build in cfg["builds"]:
         _checkAttr("path" in cfg["builds"][build], "builds/%s/path" % build, fname, True)
         # sharedlib is not mandatory
@@ -1100,8 +1095,8 @@ Type 'python3 run.py <command> help' to get details
 
       _checkAttr("installed-dir" in speccfg, "installed-dir", fname, True)
 
-    if args.sendmailcfg:
-      fname = args.sendmailcfg
+    if args.mailcfg:
+      fname = args.mailcfg
       smcfg = json.load(open(fname))
 
       _checkAttr("from" in smcfg, "from", fname, True)
@@ -1114,6 +1109,18 @@ Type 'python3 run.py <command> help' to get details
       exit(1)
     else:
       exit(0)
+
+
+
+  ############################################################
+  #                       Test mail
+  ############################################################
+  def mailtest(self):
+    parser = newParser("mailtest", sendmail=True, optionals=[])
+    args = parser.parse_args(sys.argv[2:])
+    cfg = json.load(open(args.mailcfg, "r"))
+    sendMail(cfg, "test from llvmscript", "contents")
+
 
 
 if __name__ == '__main__':
