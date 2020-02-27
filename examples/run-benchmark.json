@@ -7,6 +7,8 @@
   "iteration":3,
   "ramdisk":"/mnt/ramdisk",
   "dropcache":true,
+  "disable_aslr":true,
+  "set_scaling_governor":true,
   "use_cset":true,
   "cset_username":"sflab"
 }

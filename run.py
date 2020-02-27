@@ -136,6 +136,18 @@ Subject: %s
   except Exception as e:
     print(e)
 
+def runAsSudo(cmd):
+  Popen(["sudo", "-S", "sh", "-c", cmd]).wait()
+
+def dropCache():
+  runAsSudo("echo 1 > /proc/sys/vm/drop_caches")
+  runAsSudo("echo 2 > /proc/sys/vm/drop_caches")
+  runAsSudo("echo 3 > /proc/sys/vm/drop_caches")
+
+def initCSet(self):
+  runAsSudo("cset shield --reset")
+  runAsSudo("cset shield -c 0")
+
 
 
 # Main object.
@@ -340,7 +352,7 @@ Type 'python3 run.py <command> help' to get details
 
     # Now, create virtualenv.
     venv_dir = cfg["virtualenv-dir"]
-    p = Popen(["virtualenv", "-p", "python2", venv_dir])
+    p = Popen(["virtualenv", "-p", "python3", venv_dir])
     p.wait()
 
     # Install LNT at virtualenv.
@@ -396,13 +408,6 @@ Type 'python3 run.py <command> help' to get details
     fullpath = os.path.join(orgpath, testpath)
     assert (not os.path.exists(fullpath)), "Directory already exists: %s" % fullpath
     return testpath
-
-  # Initialize cset
-  def _initCSet(self):
-    p = Popen(["sudo", "cset", "shield", "--reset"])
-    p.wait()
-    p = Popen(["sudo", "cset", "shield", "-c", "0"])
-    p.wait()
 
   def _initCCScript(self, clang, clangpp, noopt, emitllvm):
     mydir = os.path.dirname(__file__)
@@ -555,9 +560,15 @@ Type 'python3 run.py <command> help' to get details
   def _runTestSuiteUsingCMake(self, cfg, testcfg, runcfg, runonly,
                               speccfg=None, path_suffix=None):
     if hasAndEquals(runcfg, "dropcache", True):
-      Popen(["sudo", "-S", "sh", "-c", "echo 1 > /proc/sys/vm/drop_caches"]).wait()
-      Popen(["sudo", "-S", "sh", "-c", "echo 2 > /proc/sys/vm/drop_caches"]).wait()
-      Popen(["sudo", "-S", "sh", "-c", "echo 3 > /proc/sys/vm/drop_caches"]).wait()
+      dropCache()
+    if hasAndEquals(runcfg, "disable_aslr", True):
+      runAsSudo("echo 0 > /proc/sys/kernel/randomize_va_space")
+    if hasAndEquals(runcfg, "set_scaling_governor", True):
+      runAsSudo(
+        "for i in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do" +
+        " echo performance > /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; " +
+        "done")
+
 
     if "ramdisk" in runcfg:
       for f in glob.glob(runcfg["ramdisk"]):
@@ -579,7 +590,7 @@ Type 'python3 run.py <command> help' to get details
     print("++ Path: %s" % testpath)
 
     if hasAndEquals(runcfg, "use_cset", True):
-      self._initCSet();
+      initCSet();
 
     if not hasAndEquals(runcfg, "nobuild", True):
       self._buildTestSuiteUsingCMake(testpath, cfg, testcfg, runcfg, speccfg=speccfg,
@@ -601,9 +612,7 @@ Type 'python3 run.py <command> help' to get details
     for itr in range(0, itrcnt):
       runonly = runonly if runonly else "."
       if hasAndEquals(runcfg, "dropcache", True):
-        Popen(["sudo", "-S", "sh", "-c", "echo 1 > /proc/sys/vm/drop_caches"]).wait()
-        Popen(["sudo", "-S", "sh", "-c", "echo 2 > /proc/sys/vm/drop_caches"]).wait()
-        Popen(["sudo", "-S", "sh", "-c", "echo 3 > /proc/sys/vm/drop_caches"]).wait()
+        dropCache()
       self._runLit(testpath, llvmdir, runonly, corecnt)
 
 
@@ -682,7 +691,7 @@ Type 'python3 run.py <command> help' to get details
       testpath2 = self._getTestSuiteBuildPath(cfg2, testcfg, runcfg)
 
       if hasAndEquals(runcfg, "use_cset", True):
-        self._initCSet();
+        initCSet();
 
       self._buildTestSuiteUsingCMake(testpath1, cfg1, testcfg, runcfg)
       self._buildTestSuiteUsingCMake(testpath2, cfg2, testcfg, runcfg)
@@ -841,7 +850,7 @@ Type 'python3 run.py <command> help' to get details
 
 
   ############################################################
-  #           Building test-suite using LNT script
+  #                  Count instructions
   ############################################################
 
   def _instcount_sum(self, json, jsonres):
