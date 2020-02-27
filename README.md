@@ -8,7 +8,14 @@ Recommended environment: Ubuntu
 
 - `git`: required for cloning repos
 - `cmake3`, `ninja`, `g++`: required for building repos
-- `virtualenv2`, `python-dev`: required for initializing LLVM Nightly Tests
+- `python3-pip`, `virtualenv2`, `python-dev`: required for initializing LLVM Nightly Tests
+```
+# Ubuntu:
+apt-get install python3 python3-pip
+
+pip3 install --upgrade pip3
+pip3 install virtualenv
+```
 - [NOPASSWD for sudo](https://askubuntu.com/questions/147241/execute-sudo-without-password): if you want to use cset/ramdisk/dropcache.
 - [cset](https://stackoverflow.com/questions/11111852/how-to-shield-a-cpu-from-the-linux-scheduler-prevent-it-scheduling-threads-onto): if you want to use cset.
 
