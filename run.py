@@ -202,7 +202,6 @@ Type 'python3 run.py <command> help' to get details
       repo = cfg["repo"]
       branch = cfg["branch"]
       dest = abssrc
-      branch = None
       depth = None
 
       if args.depth:
