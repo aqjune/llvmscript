@@ -8,11 +8,15 @@ Recommended environment: Ubuntu
 
 - `git`: required for cloning repos
 - `cmake3`, `ninja`, `g++`: required for building repos
-- `python3-pip`, `virtualenv2`, `python-dev`: required for initializing LLVM Nightly Tests
+
+#### To run LNT, test-suite:
+
+- `python3-pip`, `virtualenv2`, `python-dev`: required for initializing LNT
+- `yacc`, `tclsh`: required for running LNT
+
 ```
 # Ubuntu:
-apt-get install python3 python3-pip
-
+apt-get install bison tclsh python3 python3-pip
 pip3 install --upgrade pip3
 pip3 install virtualenv
 ```
