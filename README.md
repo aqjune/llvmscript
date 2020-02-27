@@ -13,15 +13,15 @@ Recommended environment: Ubuntu
 
 - `python3-pip`, `virtualenv2`, `python-dev`: required for initializing LNT
 - `yacc`, `tclsh`: required for running LNT
+- [cset](https://stackoverflow.com/questions/11111852/how-to-shield-a-cpu-from-the-linux-scheduler-prevent-it-scheduling-threads-onto): if you want to use cset.
+- [NOPASSWD for sudo](https://askubuntu.com/questions/147241/execute-sudo-without-password): if you want to use cset/ramdisk/dropcache.
 
 ```
 # Ubuntu:
-apt-get install bison tclsh python3 python3-pip
+apt-get install bison tclsh python3 python3-pip cpuset
 pip3 install --upgrade pip3
 pip3 install virtualenv
 ```
-- [NOPASSWD for sudo](https://askubuntu.com/questions/147241/execute-sudo-without-password): if you want to use cset/ramdisk/dropcache.
-- [cset](https://stackoverflow.com/questions/11111852/how-to-shield-a-cpu-from-the-linux-scheduler-prevent-it-scheduling-threads-onto): if you want to use cset.
 
 
 ## Commands for Initialization
