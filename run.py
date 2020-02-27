@@ -531,9 +531,8 @@ Type 'python3 run.py <command> help' to get details
 
     makedir = testpath
     makeopt = ["make"]
-    if runcfg["benchmark"] == False:
-      corecnt = runcfg["build-threads"] if "build-threads" in runcfg else 1
-      makeopt.append("-j%d" % corecnt)
+    corecnt = runcfg["build-threads"] if "build-threads" in runcfg else 1
+    makeopt.append("-j%d" % corecnt)
 
     if runonly:
       if runonly.startswith("SingleSource"):
