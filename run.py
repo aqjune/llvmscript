@@ -137,16 +137,27 @@ Subject: %s
     print(e)
 
 def runAsSudo(cmd):
-  Popen(["sudo", "-S", "sh", "-c", cmd]).wait()
+  if isinstance(cmd, str):
+    p = Popen(["sudo", "-S", "sh", "-c", cmd])
+    p.wait()
+  else:
+    p = Popen(["sudo", "-S"] + cmd)
+    p.wait()
+  return p.returncode
 
 def dropCache():
   runAsSudo("echo 1 > /proc/sys/vm/drop_caches")
   runAsSudo("echo 2 > /proc/sys/vm/drop_caches")
   runAsSudo("echo 3 > /proc/sys/vm/drop_caches")
 
-def initCSet(self):
+def initCSet():
   runAsSudo("cset shield --reset")
-  runAsSudo("cset shield -c 0")
+  runAsSudo("cset shield -c 0 -k on")
+
+def setScalingGovernor():
+  for p in glob.glob("/sys/devices/system/cpu/cpu*/cpufreq/"):
+    f = p + "scaling_governor"
+    runAsSudo("echo performance > %s" % f)
 
 
 
@@ -500,14 +511,16 @@ Type 'python3 run.py <command> help' to get details
     if runcfg["benchmark"]:
       cmakeopt = cmakeopt + ["-DTEST_SUITE_BENCHMARKING_ONLY=On"]
       if runcfg["use_cset"]:
+        cmd = "sudo cset shield --user=%s --exec --" % runcfg["cset_username"]
+        cmakeopt = cmakeopt + ["-DTEST_SUITE_RUN_UNDER=%s" % cmd]
         # RunSafely.sh should be properly modified in advance
-        rsf = open(os.path.join(testcfg["test-suite-dir"], "RunSafely.sh"), "r")
-        lines = [l.strip() for l in rsf.readlines()]
-        if lines[196] == "$TIMEIT $TIMEITFLAGS $COMMAND":
-          print("To enable use_cset, please update line 197 at %s/RunSafely.sh with following:" % testpath)
-          print("\tsudo cset shield --user=sflab --exec $TIMEIT -- $TIMEITFLAGS $COMMAND")
-          exit(1)
-        rsf.close()
+        #rsf = open(os.path.join(testcfg["test-suite-dir"], "RunSafely.sh"), "r")
+        #lines = [l.strip() for l in rsf.readlines()]
+        #if lines[197] == "$TIMEIT $TIMEITFLAGS $COMMAND":
+        #  print("To enable use_cset, please update line 197 at %s/RunSafely.sh with following:" % testpath)
+        #  print("\tsudo cset shield --user=sflab --exec $TIMEIT -- $TIMEITFLAGS $COMMAND")
+        #  exit(1)
+        #rsf.close()
       else:
         cmakeopt = cmakeopt + ["-DTEST_SUITE_RUN_UNDER=taskset -c 1"]
     cmakeopt.append(testcfg["test-suite-dir"])
@@ -563,27 +576,20 @@ Type 'python3 run.py <command> help' to get details
     if hasAndEquals(runcfg, "disable_aslr", True):
       runAsSudo("echo 0 > /proc/sys/kernel/randomize_va_space")
     if hasAndEquals(runcfg, "set_scaling_governor", True):
-      runAsSudo(
-        "for i in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do" +
-        " echo performance > /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; " +
-        "done")
+      setScalingGovernor()
 
 
     if "ramdisk" in runcfg:
       for f in glob.glob(runcfg["ramdisk"]):
         if f == runcfg["ramdisk"]:
           continue
-        Popen(["sudo", "-S", "rm", "-rf", f]).wait()
+        runAsSudo(["rm", "-rf", "f"])
 
-      p = Popen(["sudo", "-S", "umount", "-f", runcfg["ramdisk"]])
-      p.wait()
-
-      Popen(["sudo", "-S", "mkdir", "-p", runcfg["ramdisk"]]).wait()
-      cmd = ["sudo", "-S", "mount", "-t", "tmpfs", "-o", "size=2048M",
-             "tmpfs", runcfg["ramdisk"]]
-      p = Popen(cmd)
-      p.wait()
-      assert(p.returncode == 0)
+      runAsSudo(["umount", "-f", runcfg["ramdisk"]])
+      runAsSudo(["mkdir", "-p", runcfg["ramdisk"]])
+      retcode = runAsSudo(["mount", "-t", "tmpfs", "-o", "size=2048M",
+                           "tmpfs", runcfg["ramdisk"]])
+      assert(retcode == 0), "Cannot mount ramdisk: %s" % runcfg["ramdisk"]
 
     testpath = self._getTestSuiteBuildPath(cfg, testcfg, runcfg, path_suffix)
     print("++ Path: %s" % testpath)
@@ -591,9 +597,8 @@ Type 'python3 run.py <command> help' to get details
     if hasAndEquals(runcfg, "use_cset", True):
       initCSet();
 
-    if not hasAndEquals(runcfg, "nobuild", True):
-      self._buildTestSuiteUsingCMake(testpath, cfg, testcfg, runcfg, speccfg=speccfg,
-                                     runonly=runonly)
+    self._buildTestSuiteUsingCMake(testpath, cfg, testcfg, runcfg, speccfg=speccfg,
+                                   runonly=runonly)
 
     # Of iterations to run
     if hasAndEquals(runcfg, "emitasm", True) or "emitbc" in runcfg:
@@ -800,7 +805,7 @@ Type 'python3 run.py <command> help' to get details
 
 
   ############################################################
-  #           Building test-suite using LNT script
+  #           Running test-suite using LNT script
   ############################################################
   def lnt(self):
     parser = newParser("lnt", llvm=True, testsuite=True, run=True,

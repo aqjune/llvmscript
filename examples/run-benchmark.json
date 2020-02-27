@@ -3,7 +3,6 @@
   "build-threads":1,
   "buildopt":"release",
   "benchmark":true,
-  "nobuild":false,
   "iteration":3,
   "ramdisk":"/mnt/ramdisk",
   "dropcache":true,
