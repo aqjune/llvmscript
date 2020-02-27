@@ -51,12 +51,12 @@ Run test-suite with `cmake`:
 python3 run.py test --cfg examples/llvm.json --testcfg examples/testsuite.json --runcfg examples/run.json
 ```
 
-(WIP) Run Test Suite with LLVM Nightly Tests script:
+Run test-suite with LLVM Nightly Tests script:
 ```
 python3 run.py lnt --cfg examples/llvm.json --testcfg examples/testsuite.json --runcfg examples/run.json
 ```
 
-Run SPEC CINT2017rate using test-suite:
+Run SPEC CINT2017rate:
 ```
 python3 run.py spec --cfg examples/llvm.json --testcfg examples/testsuite.json --runcfg examples/run.json --speccfg examples/spec.json --testsuite --runonly CINT2017rate
 ```
