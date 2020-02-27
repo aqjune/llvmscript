@@ -4,7 +4,7 @@ One-for-all python script for running experiment with LLVM
 
 Recommended environment: Ubuntu
 
-# Prerequisites
+## Prerequisites
 
 - `git`: required for cloning repos
 - `cmake3`, `ninja`, `g++`: required for building repos
@@ -20,7 +20,7 @@ pip3 install virtualenv
 - [cset](https://stackoverflow.com/questions/11111852/how-to-shield-a-cpu-from-the-linux-scheduler-prevent-it-scheduling-threads-onto): if you want to use cset.
 
 
-# Commands for Initialization
+## Commands for Initialization
 
 Type `python3 run.py` to see available options.
 
@@ -40,7 +40,7 @@ python3 run.py testsuite --cfg examples/testsuite.json
 ```
 
 
-# Commands for Performance Test
+## Commands for Performance Test
 
 Run test-suite with `cmake`:
 ```
@@ -58,7 +58,7 @@ python3 run.py spec --cfg examples/llvm.json --testcfg examples/testsuite.json -
 ```
 
 
-# Commands for Analyzing Experimental Results
+## Commands for Analyzing Experimental Results
 
 Compile test-suite with llvm and llvm2, compares assembly outputs, prints the results (one assembly file per one line) to result.txt
 ```
