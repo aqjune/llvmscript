@@ -151,8 +151,10 @@ def dropCache():
   runAsSudo("echo 3 > /proc/sys/vm/drop_caches")
 
 def initCSet():
-  runAsSudo("cset shield --reset")
-  runAsSudo("cset shield -c 0 -k on")
+  print("Unsupported feature: use_cset")
+  exit(1)
+  #runAsSudo("cset shield --reset")
+  #runAsSudo("cset shield -c 0 -k on")
 
 def setScalingGovernor():
   for p in glob.glob("/sys/devices/system/cpu/cpu*/cpufreq/"):
@@ -169,10 +171,11 @@ class LLVMScript(object):
       usage = '''python3 run.py <command> [<args>]
 
 Commands:
-  clone     Clone LLVM into local
+  clone     Clone LLVM
   build     Build LLVM
-  testsuite Clone & initialize test-suite and lnt
-  test      Run test-suite using cmake
+  initlnt   Clone & initialize test-suite and lnt
+  test      Run LIT tests
+  testsuite Run test-suite using cmake
   lnt       Run test-suite using lnt
   spec      Run SPEC benchmark
   instcount Get statistics of the number of LLVM assembly instructions
@@ -335,8 +338,8 @@ Type 'python3 run.py <command> help' to get details
   ############################################################
   #              clone test-suite and lnt
   ############################################################
-  def testsuite(self):
-    parser = newParser("testsuite", testsuite=True, sendmail=True, optionals=["sendmail"])
+  def lnt(self):
+    parser = newParser("lnt", testsuite=True, sendmail=True, optionals=["sendmail"])
     args = parser.parse_args(sys.argv[2:])
 
     cfgpath = args.cfg
@@ -415,8 +418,8 @@ Type 'python3 run.py <command> help' to get details
       testpath = "%s-%s-%s-%s%s" % (orgpath, cfg["branch"], runcfg["buildopt"],
                                     strnow, path_suffix)
 
-    fullpath = os.path.join(orgpath, testpath)
-    assert (not os.path.exists(fullpath)), "Directory already exists: %s" % fullpath
+    assert (not os.path.exists(testpath)), \
+           "Directory already exists: %s" % testpath
     return testpath
 
   def _initCCScript(self, clang, clangpp, noopt, emitllvm):
@@ -510,9 +513,13 @@ Type 'python3 run.py <command> help' to get details
 
     if runcfg["benchmark"]:
       cmakeopt = cmakeopt + ["-DTEST_SUITE_BENCHMARKING_ONLY=On"]
-      if runcfg["use_cset"]:
-        cmd = "sudo cset shield --user=%s --exec --" % runcfg["cset_username"]
-        cmakeopt = cmakeopt + ["-DTEST_SUITE_RUN_UNDER=%s" % cmd]
+      if hasAndEquals(runcfg, "use_cset", True):
+        # Note: This doesn't work; the output contains a message from cset,
+        # which causes tests to fail;
+        #  cset: --> last message, executed args into cpuset "/user", new pid is: 16852
+        #cmd = "sudo cset shield --user=%s --exec --" % runcfg["cset_username"]
+        #cmakeopt = cmakeopt + ["-DTEST_SUITE_RUN_UNDER=%s" % cmd]
+
         # RunSafely.sh should be properly modified in advance
         #rsf = open(os.path.join(testcfg["test-suite-dir"], "RunSafely.sh"), "r")
         #lines = [l.strip() for l in rsf.readlines()]
@@ -521,8 +528,12 @@ Type 'python3 run.py <command> help' to get details
         #  print("\tsudo cset shield --user=sflab --exec $TIMEIT -- $TIMEITFLAGS $COMMAND")
         #  exit(1)
         #rsf.close()
+        print("TODO: Unsupported feature: use_cset")
+        exit(1)
       else:
         cmakeopt = cmakeopt + ["-DTEST_SUITE_RUN_UNDER=taskset -c 1"]
+      if hasAndEquals(runcfg, "use_perf", True):
+        cmakeopt = cmakeopt + ["-DTEST_SUITE_USE_PERF=ON"]
     cmakeopt.append(testcfg["test-suite-dir"])
 
     # Run cmake.
@@ -541,6 +552,7 @@ Type 'python3 run.py <command> help' to get details
       else:
         makedir = makedir + "/" + runonly
 
+    print("Running make at %s" % makedir)
     # Run make.
     p = Popen(makeopt, cwd=makedir)
     p.wait()
@@ -560,9 +572,9 @@ Type 'python3 run.py <command> help' to get details
       args.append("--no-execute")
 
     if runonly:
-      args.append(runonly)
+      args.append(os.path.join(testpath, runonly))
     else:
-      args.append(".")
+      args.append(testpath)
 
     p = Popen(args, cwd=testpath)
     p.wait()
@@ -622,7 +634,7 @@ Type 'python3 run.py <command> help' to get details
   ##
   # Run Test Suite using CMake
   ##
-  def test(self):
+  def testsuite(self):
     parser = newParser("test", llvm=True, testsuite=True, run=True,
         sendmail=True, optionals=["sendmail"])
     parser.add_argument('--runonly',
@@ -668,11 +680,13 @@ Type 'python3 run.py <command> help' to get details
   ############################################################
   def diff(self):
     parser = newParser("diff", llvm=True, llvm2=True, testsuite=True, run=True,
-        sendmail=True, optionals=["sendmail", "testsuite"])
+        spec=True, sendmail=True, optionals=["sendmail", "testsuite", "spec"])
     parser.add_argument('--diff', action="store",
         help='Use pre-built test-suites to generate diff (format: dir1,dir2)')
     parser.add_argument('--out', help='Output file path', required=True,
                         action='store')
+    parser.add_argument('--runonly', action="store",
+        help='Only run this benchmark')
     args = parser.parse_args(sys.argv[2:])
 
     cfg1 = json.load(open(args.cfg))
@@ -684,20 +698,33 @@ Type 'python3 run.py <command> help' to get details
       testpath1 = paths[0]
       testpath2 = paths[1]
     else:
+      if hasAndEquals(runcfg, "use_cset", True):
+        print("use_cset is not allowed for diff")
+        exit(1)
+        #initCSet();
+
       # Build test-suite from scratch.
       assert(args.testcfg)
       testcfg = json.load(open(args.testcfg))
+      speccfg = json.load(open(args.speccfg)) if args.speccfg else None
 
-      assert(hasAndEquals(runcfg, "emitasm", True))
+      assert(hasAndEquals(runcfg, "emitasm", True) or "emitbc" in runcfg)
 
       testpath1 = self._getTestSuiteBuildPath(cfg1, testcfg, runcfg)
       testpath2 = self._getTestSuiteBuildPath(cfg2, testcfg, runcfg)
 
-      if hasAndEquals(runcfg, "use_cset", True):
-        initCSet();
+      runonly = None
+      if args.runonly:
+        runonly = args.runonly
+        if runonly.startswith("CINT2017rate") or runonly.startswith("CFP2017rate") or \
+           runonly.startswith("CINT2017speed") or runonly.startswith("CFP2017speed"):
+          if speccfg == None:
+            print("runonly is %s, but --speccfg is not given!" % runonly)
+            exit(1)
+          runonly = "External/SPEC/" + runonly
 
-      self._buildTestSuiteUsingCMake(testpath1, cfg1, testcfg, runcfg)
-      self._buildTestSuiteUsingCMake(testpath2, cfg2, testcfg, runcfg)
+      self._buildTestSuiteUsingCMake(testpath1, cfg1, testcfg, runcfg, speccfg, runonly)
+      self._buildTestSuiteUsingCMake(testpath2, cfg2, testcfg, runcfg, speccfg, runonly)
 
     corecnt = multiprocessing.cpu_count()
     if args.runcfg:
@@ -771,8 +798,7 @@ Type 'python3 run.py <command> help' to get details
     parser.add_argument('--testsuite', action="store_true",
         help='Use test-suite to run SPEC')
     parser.add_argument('--runonly', action="store",
-        choices=["CINT2017rate", "CFP2017rate", "CINT2017speed", "CFP2017speed"],
-        help='Only run this benchmark')
+        help='Only run this benchmark (CINT2017rate/CFP2017rate/CINT2017speed/CFP2017speed)')
     args = parser.parse_args(sys.argv[2:])
 
     if args.testsuite:
@@ -1090,8 +1116,9 @@ Type 'python3 run.py <command> help' to get details
       _checkAttr("benchmark" in runcfg, "benchmark", fname, True)
 
       if hasAndEquals(runcfg, "use_cset", True):
-        _checkAttr("cset_username" in runcfg, "cset_username", fname, True,
-                   msg="If use_cset = true, cset_username should be specified.")
+        _errmsg(True, "use_cset is not supported.")
+        #_checkAttr("cset_username" in runcfg, "cset_username", fname, True,
+        #           msg="If use_cset = true, cset_username should be specified.")
 
       if hasAndEquals(runcfg, "benchmark", True) and hasAndEquals(runcfg, "emitasm", True):
         _errmsg(True, "emitasm and benchmark cannot be both true.")

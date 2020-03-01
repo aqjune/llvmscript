@@ -13,12 +13,14 @@ Recommended environment: Ubuntu
 
 - `python3-pip`, `virtualenv2`, `python-dev`: required for initializing LNT
 - `yacc`, `tclsh`: required for running LNT
-- [cset](https://stackoverflow.com/questions/11111852/how-to-shield-a-cpu-from-the-linux-scheduler-prevent-it-scheduling-threads-onto): if you want to use cset.
+- `perf`: if you want to use perf (`use_perf`)
+- [cset](https://stackoverflow.com/questions/11111852/how-to-shield-a-cpu-from-the-linux-scheduler-prevent-it-scheduling-threads-onto): if you want to use cset (`use_cset`; currently not supported)
 - [NOPASSWD for sudo](https://askubuntu.com/questions/147241/execute-sudo-without-password): if you want to use cset/ramdisk/dropcache.
 
 ```
 # Ubuntu:
-apt-get install bison tclsh python3 python3-pip cpuset
+apt-get install bison tclsh python3 python3-pip cpuset linux-tools-common \
+                linux-tools-generic
 pip3 install --upgrade pip3
 pip3 install virtualenv
 ```
@@ -40,7 +42,7 @@ python3 run.py build --cfg examples/llvm.json --type <release/relassert/debug> -
 
 Clone & initialize LLVM Nightly Tests and test-suite:
 ```
-python3 run.py testsuite --cfg examples/testsuite.json
+python3 run.py initlnt --cfg examples/testsuite.json
 ```
 
 
@@ -48,7 +50,7 @@ python3 run.py testsuite --cfg examples/testsuite.json
 
 Run test-suite with `cmake`:
 ```
-python3 run.py test --cfg examples/llvm.json --testcfg examples/testsuite.json --runcfg examples/run.json
+python3 run.py testsuite --cfg examples/llvm.json --testcfg examples/testsuite.json --runcfg examples/run.json
 ```
 
 Run test-suite with LLVM Nightly Tests script:
@@ -58,7 +60,8 @@ python3 run.py lnt --cfg examples/llvm.json --testcfg examples/testsuite.json --
 
 Run SPEC CINT2017rate:
 ```
-python3 run.py spec --cfg examples/llvm.json --testcfg examples/testsuite.json --runcfg examples/run.json --speccfg examples/spec.json --testsuite --runonly CINT2017rate
+python3 run.py spec --cfg examples/llvm.json --testcfg examples/testsuite.json --runcfg examples/run-spec.json --speccfg examples/spec.json --testsuite --runonly CINT2017rate
+# CINT2017rate, CFP2017rate, CINT2017speed, CFP2017speed
 ```
 
 
