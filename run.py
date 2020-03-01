@@ -161,6 +161,52 @@ def setScalingGovernor():
     f = p + "scaling_governor"
     runAsSudo("echo performance > %s" % f)
 
+def asmHasDiff(asmpath1, asmpath2):
+  asm1 = open(asmpath1, "r").readlines()
+  asm2 = open(asmpath2, "r").readlines()
+
+  hasdiff = False
+  if len(asm1) != len(asm2):
+    hasdiff = True
+  else:
+    for i in range(0, len(asm1)):
+      a1 = prune(asm1[i])
+      a2 = prune(asm2[i])
+
+      if a1 == a2:
+        continue
+      elif a1.startswith(".ident") and a2.startswith(".ident"):
+        pattern = '.ident\s*\"clang version [0-9]+.[0-9].[0-9] \(((git\@github.com)|(https:\/\/github.com))[a-zA-Z0-9\)\( :/.-]*'
+        if re.match(pattern, a1) or re.match(pattern, a2):
+          continue
+        else:
+          hasdiff = True
+          break
+      else:
+        hasdiff = True
+        break
+  return hasdiff
+
+def llHasDiff(llpath1, llpath2):
+  ll1 = open(llpath1, "r").readlines()
+  ll2 = open(llpath2, "r").readlines()
+
+  hasdiff = False
+  if len(ll1) != len(ll2):
+    hasdiff = True
+  else:
+    for i in range(1, len(ll1)):
+      a = ll1[i].strip()
+      b = ll2[i].strip()
+      if a != b:
+        # !1 = !{!"clang version 11.0.0 (git@github.com:aqjune/llvm-project-nonnull.git 13db7490fa67e22605dec4ab824121230b0fd928)"}
+        pat = '\![0-9]+\s*=\s*\!\{\!\"clang version [0-9]+.[0-9].[0-9] \(((git\@github.com)|(https:\/\/github.com))[a-zA-Z0-9\)\( :/.-]*\"\}'
+        if re.match(pat, a) or re.match(pat, b):
+          continue
+        hasdiff = True
+        break
+  return hasdiff
+
 
 
 # Main object.
@@ -576,6 +622,8 @@ Type 'python3 run.py <command> help' to get details
     else:
       args.append(testpath)
 
+    print("Running lit: %s" % " ".join(args))
+    print("\tat: %s" % testpath)
     p = Popen(args, cwd=testpath)
     p.wait()
 
@@ -678,6 +726,7 @@ Type 'python3 run.py <command> help' to get details
   #    Diff assembly outputs after running test-suite
   #    with two LLVMs
   ############################################################
+
   def diff(self):
     parser = newParser("diff", llvm=True, llvm2=True, testsuite=True, run=True,
         spec=True, sendmail=True, optionals=["sendmail", "testsuite", "spec"])
@@ -692,6 +741,8 @@ Type 'python3 run.py <command> help' to get details
     cfg1 = json.load(open(args.cfg))
     cfg2 = json.load(open(args.cfg2))
     runcfg = json.load(open(args.runcfg))
+    outf = open(args.out, "w")
+    emitasm = hasAndEquals(runcfg, "emitasm", True)
 
     if args.diff:
       paths = args.diff.split(',')
@@ -742,46 +793,38 @@ Type 'python3 run.py <command> help' to get details
     # Diff all .s files
     print(testpath1)
     print(testpath2)
+    ext = '.s' if emitasm else '.bc'
     result1 = [os.path.join(os.path.relpath(dp, testpath1), f)
                for dp, dn, filenames in os.walk(testpath1)
-               for f in filenames if os.path.splitext(f)[-1] == '.s']
+               for f in filenames if os.path.splitext(f)[-1] == ext]
     result2 = [os.path.join(os.path.relpath(dp, testpath2), f)
                for dp, dn, filenames in os.walk(testpath2)
-               for f in filenames if os.path.splitext(f)[-1] == '.s']
+               for f in filenames if os.path.splitext(f)[-1] == ext]
     # The list of files should be same
     assert(set(result1) == set(result2))
+    print("Total %d %s pairs found" % (len(result1), ext))
     # TODO: relate 'tests' variable with results
-
-    outf = open(args.out, "w")
 
     prune = lambda s: (s if s.find("#") == -1 else s[s.find("#"):]).strip()
 
+    cnt = 0
     for asmf in result1:
-      asm1 = open("%s/%s" % (testpath1, asmf), "r").readlines()
-      asm2 = open("%s/%s" % (testpath2, asmf), "r").readlines()
-
-      hasdiff = False
-      if len(asm1) != len(asm2):
-        hasdiff = True
+      cnt = cnt + 1
+      asmpath1 = "%s/%s" % (testpath1, asmf)
+      asmpath2 = "%s/%s" % (testpath2, asmf)
+      if emitasm:
+        hasdiff = asmHasDiff(asmpath1, asmpath2)
       else:
-        for i in range(0, len(asm1)):
-          a1 = prune(asm1[i])
-          a2 = prune(asm2[i])
-
-          if a1 == a2:
-            continue
-          elif a1.startswith(".ident") and a2.startswith(".ident"):
-            pattern = '.ident\s*\"clang version [0-9].[0-9].[0-9] \(((git\@github.com)|(https:\/\/github.com))[a-zA-Z0-9\)\( :/.-]*'
-            if re.match(pattern, a1) or re.match(pattern, a2):
-              continue
-            else:
-              hasdiff = True
-              break
-          else:
-            hasdiff = True
-            break
-
+        tmp1 = "/tmp/%d.l.ll" % cnt
+        tmp2 = "/tmp/%d.r.ll" % cnt
+        p = Popen(["%s/bin/llvm-dis" % llvmdir1, asmpath1, "-o", tmp1])
+        p.wait()
+        p = Popen(["%s/bin/llvm-dis" % llvmdir2, asmpath2, "-o", tmp2])
+        p.wait()
+        hasdiff = llHasDiff(tmp1, tmp2)
       outf.write("%s %s\n" % (asmf, "YESDIFF" if hasdiff else "NODIFF"))
+      if cnt % 100 == 0:
+        print("--%d--" % cnt)
 
     if args.mailcfg:
       cfg = json.load(open(args.mailcfg, "r"))
