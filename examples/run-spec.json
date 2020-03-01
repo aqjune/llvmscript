@@ -1,13 +1,11 @@
 {
   "threads":1,
-  "build-threads":1,
+  "build-threads":4,
   "buildopt":"release",
   "benchmark":true,
   "iteration":3,
   "ramdisk":"/mnt/ramdisk",
   "dropcache":true,
   "disable_aslr":true,
-  "set_scaling_governor":true,
-  "use_perf":true,
-  "cset_username":"sflab"
+  "set_scaling_governor":true
 }
