@@ -859,7 +859,7 @@ Type 'python3 run.py <command> help' to get details
 
       suffix = "_SPEC2017"
       if args.runonly:
-        suffix = "_" + args.runonly
+        suffix = "_" + args.runonly.replace("/", "_")
       self._runTestSuiteUsingCMake(cfg, testcfg, runcfg, runonly,
                                    speccfg=speccfg, path_suffix=suffix)
 
