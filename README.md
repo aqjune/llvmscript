@@ -64,12 +64,23 @@ python3 run.py spec --cfg examples/llvm.json --testcfg examples/testsuite.json -
 # CINT2017rate, CFP2017rate, CINT2017speed, CFP2017speed
 ```
 
+Compare the results:
+```
+# testsuite-result-1/ : contains result1.json, .. resultN.json for the first LLVM
+# testsuite-result-2/ : contains json files for the second LLVM
+python3 run.py compare --dir1 testsuite-result-1/ --dir2 testsuite-result-2/ --out table.csv --comparecfg examples/compare.json
+```
 
 ## Commands for Analyzing Experimental Results
 
 Compile test-suite with llvm and llvm2, compares assembly outputs, prints the results (one assembly file per one line) to result.txt
 ```
-python3 run.py diff --cfg examples/llvm.json --cfg2 examples/llvm2.json --testcfg examples/testsuite.json --runcfg examples/run-emitasm.json --out result.txt
+python3 run.py diff --cfg examples/llvm.json --cfg2 examples/llvm2.json --testcfg examples/testsuite.json --runcfg examples/run-emitasm.json --out diff.txt
+```
+
+Filter the result from `run.py testsuite` or `run.py spec` so it only contains tests that are different in assembly
+```
+python3 run.py filter --json results1.json --diff diff.txt --out results1.filtered.json
 ```
 
 Count the number of IR instructions in a directory and prints it as a json format
