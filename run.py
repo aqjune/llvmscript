@@ -217,7 +217,7 @@ def readResultJsons(path):
   for fs in os.listdir(path):
     if not fs.endswith(".json"):
       continue
-    js = json.load(open(os.path.join(args.dir1, fs)))
+    js = json.load(open(os.path.join(path, fs)))
     for t in js["tests"]:
       if "exec_time" not in t["metrics"]:
         continue
@@ -908,23 +908,27 @@ short tests, use --comparecfg.
 
     def _median(runs):
       l = len(runs)
-      return runs[l / 2] if l % 2 == 1 else (runs[l / 2] + runs[(l+1) / 2]) / 2
+      return runs[int(l / 2)] if l % 2 == 1 else \
+            (runs[int(l / 2)] + runs[int((l+1) / 2)]) / 2
 
     def _filter(runs, med):
       return (runs[0] >= mintime) and \
              (max(med - runs[0], runs[-1] - med) / med < tolerance)
 
     aggregated_result = []
+    trials = None
     for k in res1.keys():
       runs1 = res1[k]
       runs2 = res2[k]
       assert(len(runs1) == len(runs2))
+      if trials == None:
+        trials = len(runs1)
       runs1.sort()
       runs2.sort()
       med1 = _median(runs1)
       med2 = _median(runs2)
 
-      if _filter(runs1) or _filter(runs2):
+      if not _filter(runs1, med1) or not _filter(runs2, med2):
         continue
 
       speedup = (med1 - med2) / med2 * 100
@@ -933,8 +937,11 @@ short tests, use --comparecfg.
     aggregated_result.sort(key=lambda k: k[-1])
     fhand = open(args.out, 'w')
     w = csv.writer(fhand)
+    w.writerow(["Name"] + ["Itr%d" % x for x in range(1, trials+1)] +
+               ["Median (sec.)"] + ["Itr%d" % x for x in range(1, trials+1)] +
+               ["Median (sec.)", "Speedup(%)"])
     for row in aggregated_result:
-      w.write(row)
+      w.writerow(row)
     fhand.close()
 
 
