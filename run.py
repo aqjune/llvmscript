@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 import argparse
+import csv
 import datetime
 import glob
 import json
@@ -210,6 +211,24 @@ def llHasDiff(llpath1, llpath2):
         break
   return hasdiff
 
+
+def readResultJsons(path):
+  res = dict()
+  for fs in os.listdir(path):
+    if not fs.endswith(".json"):
+      continue
+    js = json.load(open(os.path.join(args.dir1, fs)))
+    for t in js["tests"]:
+      if "exec_time" not in t["metrics"]:
+        continue
+      n = t["name"]
+      v = t["metrics"]["exec_time"]
+
+      if n not in res:
+        res[n] = [v]
+      else:
+        res[n].append(v)
+  return res
 
 
 # Main object.
@@ -862,13 +881,61 @@ Compares performance results of test-suite results.
 Two directories containing results (resultN.json) should be specified with
 --dir1 and --dir2.
 The output is printed in csv format to the file specified by --out.
+To give additional parameters for pruning out highly fluctuated results or
+short tests, use --comparecfg.
 """)
     parser.add_argument('--dir1', required=True, action="store", help='Result dir 1')
     parser.add_argument('--dir2', required=True, action="store", help='Result dir 2')
+    parser.add_argument('--comparecfg', action="store",
+                        help="Configurations for fine-grained filtering control")
     parser.add_argument('--out', help='Output file path', required=True,
                         action='store')
+    # We're not using test-suite/utils/compare.py because it does not have
+    # options for fine-grained control of filtering results.
     args = parser.parse_args(sys.argv[2:])
-    assert(False), "WIP"
+
+    mintime = 0.0
+    tolerance = 1
+    if args.comparecfg:
+      comparecfg = json.load(open(args.comparecfg))
+      mintime = comparecfg["minimum-runtime-sec"]
+      tolerance = comparecfg["tolerance"]
+    res1 = readResultJsons(args.dir1)
+    res2 = readResultJsons(args.dir2)
+
+    assert(set(res1.keys()) == set(res2.keys())), \
+           "The list of tests does not match."
+
+    def _median(runs):
+      l = len(runs)
+      return runs[l / 2] if l % 2 == 1 else (runs[l / 2] + runs[(l+1) / 2]) / 2
+
+    def _filter(runs, med):
+      return (runs[0] >= mintime) and \
+             (max(med - runs[0], runs[-1] - med) / med < tolerance)
+
+    aggregated_result = []
+    for k in res1.keys():
+      runs1 = res1[k]
+      runs2 = res2[k]
+      assert(len(runs1) == len(runs2))
+      runs1.sort()
+      runs2.sort()
+      med1 = _median(runs1)
+      med2 = _median(runs2)
+
+      if _filter(runs1) or _filter(runs2):
+        continue
+
+      speedup = (med1 - med2) / med2 * 100
+      aggregated_result.append([k] + runs1 + [med1] + runs2 + [med2] + [speedup])
+
+    aggregated_result.sort(key=lambda k: k[-1])
+    fhand = open(args.out, 'w')
+    w = csv.writer(fhand)
+    for row in aggregated_result:
+      w.write(row)
+    fhand.close()
 
 
   ############################################################
