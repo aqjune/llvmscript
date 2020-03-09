@@ -44,10 +44,11 @@ def checkLNTConfigForClone(js, filename=None):
     assert ("url" in js[i]), errmsg("%s/url" % i, filename)
 
 
-def newParser(cmd, llvm=False, llvm2=False, testsuite=False, run=False,
+def newParser(cmd, desc=None, llvm=False, llvm2=False, testsuite=False, run=False,
               spec=False, sendmail=False, optionals=[]):
-  parser = argparse.ArgumentParser(
-      description = 'Arguments for %s command' % cmd)
+  if desc == None:
+    desc = 'Arguments for %s command' % cmd
+  parser = argparse.ArgumentParser(description = desc)
 
   multi_cfg = False
   if len(list(filter((lambda x: x), [llvm, testsuite, run, spec]))) > 1:
@@ -162,6 +163,8 @@ def setScalingGovernor():
     runAsSudo("echo performance > %s" % f)
 
 def asmHasDiff(asmpath1, asmpath2):
+  prune = lambda s: (s if s.find("#") == -1 else s[s.find("#"):]).strip()
+
   asm1 = open(asmpath1, "r").readlines()
   asm2 = open(asmpath2, "r").readlines()
 
@@ -224,8 +227,9 @@ Commands:
   testsuite Run test-suite using cmake
   lnt       Run test-suite using lnt
   spec      Run SPEC benchmark
-  instcount Get statistics of the number of LLVM assembly instructions
   diff      Compile test-suite with different clangs and compare assembly files
+  compare   Compare performance results of test-suites
+  instcount Get statistics of the number of LLVM assembly instructions
   filter    Filter test-suite result with assembly diff
   check     Check wellformedness of config files
   mailtest  Test the mail account
@@ -247,8 +251,10 @@ Type 'python3 run.py <command> help' to get details
   #                       clone llvm
   ############################################################
   def clone(self):
-    parser = newParser("clone", llvm=True, sendmail=True, optionals=["sendmail"])
-    parser.add_argument('--depth', help='commit depth to clone (-1 means inf)', nargs='?', const=-1, type=int)
+    parser = newParser("clone", desc="Clones LLVM from Git", llvm=True,
+                       sendmail=True, optionals=["sendmail"])
+    parser.add_argument('--depth', help='commit depth to clone (-1 means inf)',
+                        nargs='?', const=-1, type=int)
     args = parser.parse_args(sys.argv[2:])
 
     cfgpath = args.cfg
@@ -310,7 +316,8 @@ Type 'python3 run.py <command> help' to get details
   #                      build llvm
   ############################################################
   def build(self):
-    parser = newParser("build", llvm=True, sendmail=True, optionals=["sendmail"])
+    parser = newParser("build", desc="Builds LLVM from a cloned repo",
+                       llvm=True, sendmail=True, optionals=["sendmail"])
     parser.add_argument('--type', help='release/relassert/debug', action='store', required=True)
     parser.add_argument('--core', help='# of cores to use', nargs='?', const=1, type=int)
     parser.add_argument('--target', help='targets, separated by comma (ex: opt,clang,llvm-as)',
@@ -384,8 +391,9 @@ Type 'python3 run.py <command> help' to get details
   ############################################################
   #              clone test-suite and lnt
   ############################################################
-  def lnt(self):
-    parser = newParser("lnt", testsuite=True, sendmail=True, optionals=["sendmail"])
+  def initlnt(self):
+    parser = newParser("initlnt", desc="Clone & initialize LLVM Nightly Tests and test-suite",
+                       testsuite=True, sendmail=True, optionals=["sendmail"])
     args = parser.parse_args(sys.argv[2:])
 
     cfgpath = args.cfg
@@ -431,6 +439,16 @@ Type 'python3 run.py <command> help' to get details
       cfg = json.load(open(args.mailcfg, "r"))
       sendMail(cfg, "testsuite", str(args))
 
+
+  ############################################################
+  #                Run LLVM's LIT tests
+  ############################################################
+  def test(self):
+    parser = newParser("test", desc="Run LIT tests", llvm=True)
+    parser.add_argument('--type', help='release/relassert/debug', action='store', required=True)
+    parser.add_argument('--core', help='# of cores to use', nargs='?', const=1, type=int)
+    args = parser.parse_args(sys.argv[2:])
+    assert(False), "Not supported"
 
 
   ############################################################
@@ -683,8 +701,12 @@ Type 'python3 run.py <command> help' to get details
   # Run Test Suite using CMake
   ##
   def testsuite(self):
-    parser = newParser("test", llvm=True, testsuite=True, run=True,
-        sendmail=True, optionals=["sendmail"])
+    parser = newParser("test", desc="""
+Run test-suite using cmake command.
+This runs programs that are not written in C/C++ as well.
+""",
+                       llvm=True, testsuite=True, run=True,
+                       sendmail=True, optionals=["sendmail"])
     parser.add_argument('--runonly',
         help='Run a specified test only (e.g. SingleSource/Benchmarks/Shootout)',
         action='store', required=False)
@@ -728,9 +750,14 @@ Type 'python3 run.py <command> help' to get details
   ############################################################
 
   def diff(self):
-    parser = newParser("diff", llvm=True, llvm2=True, testsuite=True, run=True,
+    parser = newParser("diff", desc="""
+Diffs assembly outputs after running test-suite with two different LLVMs.
+Infos about LLVMs should be given with --cfg and --cfg2.
+The list of different assembly files is printed at the file specified by --out.
+""",
+        llvm=True, llvm2=True, testsuite=True, run=True,
         spec=True, sendmail=True, optionals=["sendmail", "testsuite", "spec"])
-    parser.add_argument('--diff', action="store",
+    parser.add_argument('--prebuilt', action="store",
         help='Use pre-built test-suites to generate diff (format: dir1,dir2)')
     parser.add_argument('--out', help='Output file path', required=True,
                         action='store')
@@ -744,8 +771,8 @@ Type 'python3 run.py <command> help' to get details
     outf = open(args.out, "w")
     emitasm = hasAndEquals(runcfg, "emitasm", True)
 
-    if args.diff:
-      paths = args.diff.split(',')
+    if args.prebuilt:
+      paths = args.prebuilt.split(',')
       testpath1 = paths[0]
       testpath2 = paths[1]
     else:
@@ -755,7 +782,7 @@ Type 'python3 run.py <command> help' to get details
         #initCSet();
 
       # Build test-suite from scratch.
-      assert(args.testcfg)
+      assert(args.testcfg), "To build test-suite, --testcfg is needed"
       testcfg = json.load(open(args.testcfg))
       speccfg = json.load(open(args.speccfg)) if args.speccfg else None
 
@@ -805,8 +832,6 @@ Type 'python3 run.py <command> help' to get details
     print("Total %d %s pairs found" % (len(result1), ext))
     # TODO: relate 'tests' variable with results
 
-    prune = lambda s: (s if s.find("#") == -1 else s[s.find("#"):]).strip()
-
     cnt = 0
     for asmf in result1:
       cnt = cnt + 1
@@ -831,12 +856,30 @@ Type 'python3 run.py <command> help' to get details
       sendMail(cfg, "diff", str(args))
 
 
+  def compare(self):
+    parser = newParser("compare", desc="""
+Compares performance results of test-suite results.
+Two directories containing results (resultN.json) should be specified with
+--dir1 and --dir2.
+The output is printed in csv format to the file specified by --out.
+""")
+    parser.add_argument('--dir1', required=True, action="store", help='Result dir 1')
+    parser.add_argument('--dir2', required=True, action="store", help='Result dir 2')
+    parser.add_argument('--out', help='Output file path', required=True,
+                        action='store')
+    args = parser.parse_args(sys.argv[2:])
+    assert(False), "WIP"
+
 
   ############################################################
   #                Running SPEC benchmarks
   ############################################################
   def spec(self):
-    parser = newParser("spec", llvm=True, testsuite=True, run=True, spec=True,
+    parser = newParser("spec", desc="""
+Runs SPEC CPU benchmark.
+The path of SPEC CPU should be given with --speccfg.
+""",
+                       llvm=True, testsuite=True, run=True, spec=True,
                        sendmail=True, optionals=["testsuite", "sendmail"])
     parser.add_argument('--testsuite', action="store_true",
         help='Use test-suite to run SPEC')
@@ -876,8 +919,9 @@ Type 'python3 run.py <command> help' to get details
   #           Running test-suite using LNT script
   ############################################################
   def lnt(self):
-    parser = newParser("lnt", llvm=True, testsuite=True, run=True,
-        sendmail=True, optionals=["sendmail"])
+    parser = newParser("lnt", desc="Runs test-suite using LNT script.",
+                       llvm=True, testsuite=True, run=True,
+                       sendmail=True, optionals=["sendmail"])
     args = parser.parse_args(sys.argv[2:])
 
     cfg = json.load(open(args.cfg))
@@ -1100,7 +1144,8 @@ Type 'python3 run.py <command> help' to get details
   #                   check config files
   ############################################################
   def check(self):
-    parser = newParser("test", llvm=True, testsuite=True, run=True, spec=True,
+    parser = newParser("check", desc="Checks the validity of configurations.",
+                       llvm=True, testsuite=True, run=True, spec=True,
         sendmail=True,
         optionals=["llvm", "testsuite", "run", "spec", "sendmail"])
     args = parser.parse_args(sys.argv[2:])
