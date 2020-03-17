@@ -39,11 +39,17 @@ Type `python3 run.py` to see available options.
 
 Clone LLVM:
 ```
+# Please edit "src" attribute at examples/llvm.json to specify where to clone LLVM project
 python3 run.py clone --cfg examples/llvm.json
 ```
 
 Build LLVM:
 ```
+# release: fast build, has no debug info
+# debug: slow build, large binaries; can debug clang with gdb/lldb
+# relassert: fast build, enables assertion checks
+# NOTE: if it aborts due to insufficient memory space, please re-try with
+#       smaller number of cores (it will restart compiling from the last status)
 python3 run.py build --cfg examples/llvm.json --type <release/relassert/debug> --core <# of cores to use>
 ```
 
