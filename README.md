@@ -15,7 +15,7 @@ apt update
 apt install git cmake ninja-build g++
 ```
 
-#### To run LNT, test-suite:
+#### To run benchmarks (LNT, test-suite):
 
 - `python3-pip`, `virtualenv2`, `python-dev`: required for initializing LNT
 - `yacc`, `tclsh`: required for running LNT
