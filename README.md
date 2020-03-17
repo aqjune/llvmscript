@@ -6,6 +6,7 @@ Recommended environment: Ubuntu
 
 ## Prerequisites
 
+- `python3`: required for running this script
 - `git`: required for cloning repos
 - `cmake3`, `ninja`, `g++`: required for building repos
 
