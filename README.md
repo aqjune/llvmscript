@@ -9,6 +9,11 @@ Recommended environment: Ubuntu
 - `git`: required for cloning repos
 - `cmake3`, `ninja`, `g++`: required for building repos
 
+```
+# Ubuntu:
+apt install git cmake ninja-build g++
+```
+
 #### To run LNT, test-suite:
 
 - `python3-pip`, `virtualenv2`, `python-dev`: required for initializing LNT
