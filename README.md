@@ -46,13 +46,13 @@ Build LLVM:
 python3 run.py build --cfg examples/llvm.json --type <release/relassert/debug> --core <# of cores to use>
 ```
 
+
+## Commands for Performance Test
+
 Clone & initialize LLVM Nightly Tests and test-suite:
 ```
 python3 run.py initlnt --cfg examples/testsuite.json
 ```
-
-
-## Commands for Performance Test
 
 Run test-suite with `cmake`:
 ```
