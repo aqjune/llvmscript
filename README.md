@@ -11,6 +11,7 @@ Recommended environment: Ubuntu
 
 ```
 # Ubuntu:
+apt update
 apt install git cmake ninja-build g++
 ```
 
