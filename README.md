@@ -6,14 +6,14 @@ Recommended environment: Ubuntu
 
 ## Prerequisites
 
-- `python3`: required for running this script
+- `python3`, `python3-distutils`: required for running this script
 - `git`: required for cloning repos
 - `cmake3`, `ninja`, `g++`: required for building repos
 
 ```
 # Ubuntu:
 apt update
-apt install git cmake ninja-build g++
+apt install git cmake ninja-build g++ python3-distutils
 ```
 
 #### To run benchmarks (LNT, test-suite):
