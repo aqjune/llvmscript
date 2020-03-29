@@ -53,6 +53,16 @@ Build LLVM:
 python3 run.py build --cfg examples/llvm.json --type <release/relassert/debug> --core <# of cores to use>
 ```
 
+This will create binaries at the `path/bin` where `path` is the attribute at `llvm.json`.
+
+Please check whether the binaries work well, e.g. by running `bin/opt` and `bin/clang`.
+
+#### Trouble-shootings
+
+- If `run.py build` prints `Target clang_rt.builtins_x86_64_osx does not exist`, remove `compiler-rt` from `llvm.json` and retry the command.
+
+- If you are using Mac and the built `clang` cannot find C standard header files such as `stdio.h`, please specify `-isysroot <SDK dir>` when using it (e.g. `clang -isysroot  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk a.c` or `-isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.sdk`).
+
 
 ## Commands for Performance Test
 
