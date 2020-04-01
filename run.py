@@ -377,8 +377,13 @@ Type 'python3 run.py <command> help' to get details
     if hasAndEquals(options, "sharedlib", True):
       cmd.append("-DBUILD_SHARED_LIBS=1")
 
-    cmd.append("-DLLVM_ENABLE_PROJECTS=%s" % cfg["builds"][args.type]["projects"])
-    if "clang-tools-extra" in cfg["builds"][args.type]["projects"].split(";"):
+    projs = cfg["builds"][args.type]["projects"].split(";")
+    if hasAndEquals(options, "use-lld", True):
+      assert("lld" in projs), "lld should be listed at projects"
+      cmd.append("-DCLANG_DEFAULT_LINKER=lld")
+
+    cmd.append("-DLLVM_ENABLE_PROJECTS=%s" % ";".join(projs))
+    if "clang-tools-extra" in projs:
       cmd.append("-DLLVM_TOOL_CLANG_TOOLS_EXTRA_BUILD=On")
       #cmd.append("-DCLANGD_BUILD_XPC=Off") # clangd 8.0 does not compile
 

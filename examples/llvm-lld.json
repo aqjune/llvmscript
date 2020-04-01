@@ -1,0 +1,24 @@
+{
+  "src":"./my-llvm-project",
+  "repo":"git@github.com:llvm/llvm-project.git",
+  "branch":"master",
+  "builds":{
+    "release":{
+      "path":"./my-llvm-release",
+      "projects":"llvm;clang;libcxx;libcxxabi;compiler-rt;lld",
+      "use-lld":true,
+      "sharedlib":false
+    },
+    "relassert":{
+      "path":"./my-llvm-releaseassert",
+      "projects":"llvm;clang;libcxx;libcxxabi;compiler-rt;lld",
+      "use-lld":true,
+      "sharedlib":true
+    },
+    "debug":{
+      "path":"./my-llvm-debug",
+      "projects":"llvm",
+      "sharedlib":true
+    }
+  }
+}
