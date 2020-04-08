@@ -571,11 +571,15 @@ Type 'python3 run.py <command> help' to get details
       # Set LD_LIBRARY_PATH
       os.putenv("LD_LIBRARY_PATH", "%s/lib" % llvmdir)
 
+    cmakecache = "Release.cmake"
+    if hasAndEquals(runcfg, "lto", True):
+      cmakecache = "ReleaseLTO.cmake"
+
     os.makedirs(testpath)
     cmakeopt = ["cmake", "-DCMAKE_C_COMPILER=%s" % clang,
                          "-DCMAKE_CXX_COMPILER=%s" % clangpp,
                          "-DTEST_SUITE_LLVM_SIZE=%s" % llsize,
-                         "-C%s/cmake/caches/O3.cmake" % testcfg["test-suite-dir"]]
+                         "-C%s/cmake/caches/%s" % (testcfg["test-suite-dir"], cmakecache)]
     if speccfg != None:
       cmakeopt.append("-DTEST_SUITE_SPEC2017_ROOT=%s" % speccfg["installed-dir"])
 
@@ -917,6 +921,8 @@ short tests, use --comparecfg.
             (runs[int(l / 2)] + runs[int((l+1) / 2)]) / 2
 
     def _filter(runs, med):
+      if med == 0.0:
+        return True
       return (runs[0] >= mintime) and \
              (max(med - runs[0], runs[-1] - med) / med < tolerance)
 
@@ -936,7 +942,7 @@ short tests, use --comparecfg.
       if not _filter(runs1, med1) or not _filter(runs2, med2):
         continue
 
-      speedup = (med1 - med2) / med2 * 100
+      speedup = 0.0 if med2 == 0.0 else ((med1 - med2) / med2 * 100)
       aggregated_result.append([k] + runs1 + [med1] + runs2 + [med2] + [speedup])
 
     aggregated_result.sort(key=lambda k: k[-1])
@@ -1032,6 +1038,8 @@ The path of SPEC CPU should be given with --speccfg.
       cmds = cmds + ["--threads", str(runcfg["threads"])]
     if "build-threads" in runcfg:
       cmds = cmds + ["--build-threads", str(runcfg["build-threads"])]
+    if hasAndEquals(runcfg, "lto", True):
+      cmds = cmds + ["--cflag=\"-flto\""]
 
     print(cmds)
 
