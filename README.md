@@ -9,12 +9,12 @@ Recommended environment: Ubuntu
 - `python3`, `python3-distutils`: required for running this script
 - `git`: required for cloning repos
 - `cmake3`, `ninja`, `g++`: required for building repos
-- `zlib1g-dev`, `libtinfo-dev`: linker requires it sometimes
+- `zlib1g-dev`, `libtinfo-dev`, `libxml2-dev`: linker requires it sometimes
 
 ```
 # Ubuntu:
 apt update
-apt install git cmake ninja-build g++ python3-distutils zlib1g-dev libtinfo-dev
+apt install git cmake ninja-build g++ python3-distutils zlib1g-dev libtinfo-dev libxml2-dev
 ```
 
 #### To run benchmarks (LNT, test-suite):
