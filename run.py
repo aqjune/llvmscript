@@ -377,6 +377,16 @@ Type 'python3 run.py <command> help' to get details
     if hasAndEquals(options, "sharedlib", True):
       cmd.append("-DBUILD_SHARED_LIBS=1")
 
+    if hasAndEquals(options, "bindings", True):
+      cmd.append("-DLLVM_ENABLE_BINDINGS=ON")
+    else:
+      cmd.append("-DLLVM_ENABLE_BINDINGS=OFF")
+
+    if hasAndEquals(options, "z3", True):
+      cmd.append("-DLLVM_ENABLE_Z3_SOLVER=ON")
+    else:
+      cmd.append("-DLLVM_ENABLE_Z3_SOLVER=OFF")
+
     projs = cfg["builds"][args.type]["projects"].split(";")
     if hasAndEquals(options, "use-lld", True):
       assert("lld" in projs), "lld should be listed at projects"
