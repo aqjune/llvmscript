@@ -501,19 +501,21 @@ Type 'python3 run.py <command> help' to get details
     if path_suffix == None:
       path_suffix = ""
 
+    name = cfg["name"] if "name" in cfg["name"] else cfg["branch"]
+
     if hasAndEquals(runcfg, "emitasm", True):
-      testpath = "%s-%s-%s-asm%s" % (orgpath, cfg["branch"], runcfg["buildopt"],
+      testpath = "%s-%s-%s-asm%s" % (orgpath, name, runcfg["buildopt"],
                                      path_suffix)
       assert("emitbc" not in runcfg)
 
     elif "emitbc" in runcfg:
-      testpath = "%s-%s-%s-bc%s%s" % (orgpath, cfg["branch"], runcfg["buildopt"],
+      testpath = "%s-%s-%s-bc%s%s" % (orgpath, name, runcfg["buildopt"],
                                       runcfg["emitbc"], path_suffix)
       assert(not hasAndEquals(runcfg, "emitasm", True))
 
     else:
       strnow = datetime.datetime.now().strftime("%m_%d_%H_%M_%S")
-      testpath = "%s-%s-%s-%s%s" % (orgpath, cfg["branch"], runcfg["buildopt"],
+      testpath = "%s-%s-%s-%s%s" % (orgpath, name, runcfg["buildopt"],
                                     strnow, path_suffix)
 
     assert (not os.path.exists(testpath)), \
