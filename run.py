@@ -163,6 +163,13 @@ def setScalingGovernor():
     f = p + "scaling_governor"
     runAsSudo("echo performance > %s" % f)
 
+def checkPerf():
+  p = Popen(["perf", "stat", "echo", "hi"])
+  p.wait()
+  if p.returncode != 0:
+    print("Cannot run perf!")
+    exit(1)
+
 def asmHasDiff(asmpath1, asmpath2):
   prune = lambda s: (s if s.find("#") == -1 else s[s.find("#"):]).strip()
 
@@ -501,7 +508,7 @@ Type 'python3 run.py <command> help' to get details
     if path_suffix == None:
       path_suffix = ""
 
-    name = cfg["name"] if "name" in cfg["name"] else cfg["branch"]
+    name = cfg["name"] if "name" in cfg else cfg["branch"]
 
     if hasAndEquals(runcfg, "emitasm", True):
       testpath = "%s-%s-%s-asm%s" % (orgpath, name, runcfg["buildopt"],
@@ -611,11 +618,11 @@ Type 'python3 run.py <command> help' to get details
       if runonly.find("/") != -1:
         subdir = runonly[0:runonly.find("/")]
       assert (subdir in ["Bitcode", "External", "MicroBenchmarks",
-              "MultiSource", "SingleSource"]), \
+              "MultiSource", "SingleSource", "CTMark"]), \
               "Unknown directory (or file): %s" % runonly
       cmakeopt = cmakeopt + ["-DTEST_SUITE_SUBDIRS=%s" % subdir]
 
-    if runcfg["benchmark"]:
+    if runcfg["benchmark"] != False:
       cmakeopt = cmakeopt + ["-DTEST_SUITE_BENCHMARKING_ONLY=On"]
       if hasAndEquals(runcfg, "use_cset", True):
         # Note: This doesn't work; the output contains a message from cset,
@@ -636,8 +643,15 @@ Type 'python3 run.py <command> help' to get details
         exit(1)
       else:
         cmakeopt = cmakeopt + ["-DTEST_SUITE_RUN_UNDER=taskset -c 1"]
+      
       if hasAndEquals(runcfg, "use_perf", True):
+        checkPerf()
         cmakeopt = cmakeopt + ["-DTEST_SUITE_USE_PERF=ON"]
+      
+      if runcfg["benchmark"] == "compiletime":
+        cmakeopt = cmakeopt + ["-DTEST_SUITE_COLLECT_COMPILE_TIME=ON",
+                               "-DTEST_SUITE_RUN_BENCHMARKS=0"]
+
     cmakeopt.append(testcfg["test-suite-dir"])
 
     # Run cmake.
@@ -729,6 +743,10 @@ Type 'python3 run.py <command> help' to get details
     if runcfg["benchmark"] == True:
       if "threads" in runcfg and runcfg["threads"] != 1:
         print("Warning: benchmark is set, but --threads is not 1!")
+
+    elif runcfg["benchmark"] == "compiletime":
+      if "build-threads" in runcfg and runcfg["build-threads"] != 1:
+        print("Warning: benchmarking compile-time, but --build-threads is not 1!")
 
     for itr in range(0, itrcnt):
       runonly = runonly if runonly else "."
@@ -1045,6 +1063,8 @@ The path of SPEC CPU should be given with --speccfg.
 
       if "iteration" in runcfg:
         cmds = cmds + ["--multisample", runcfg["iteration"]]
+    elif runcfg["benchmark"] == "compiletime":
+      assert(False), "Measuring compile-time is not supported in LNT"
 
     if "threads" in runcfg:
       cmds = cmds + ["--threads", str(runcfg["threads"])]
