@@ -9,5 +9,4 @@
   "disable_aslr":true,
   "set_scaling_governor":true,
   "use_perf":true,
-  "cset_username":"sflab"
 }
