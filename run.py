@@ -219,23 +219,30 @@ def llHasDiff(llpath1, llpath2):
   return hasdiff
 
 
-def readResultJsons(path):
+def readJsonResults(path, key):
   res = dict()
   for fs in os.listdir(path):
     if not fs.endswith(".json"):
       continue
     js = json.load(open(os.path.join(path, fs)))
     for t in js["tests"]:
-      if "exec_time" not in t["metrics"]:
+      if key not in t["metrics"]:
         continue
       n = t["name"]
-      v = t["metrics"]["exec_time"]
+      v = t["metrics"][key]
 
       if n not in res:
         res[n] = [v]
       else:
         res[n].append(v)
   return res
+
+
+def readRunningTimes(path):
+  return readJsonResults(path, "exec_time")
+
+def readObjSizes(path):
+  return readJsonResults(path, "size")
 
 
 # Main object.
@@ -931,7 +938,7 @@ short tests, use --comparecfg.
 """)
     parser.add_argument('--dir1', required=True, action="store", help='Result dir 1')
     parser.add_argument('--dir2', required=True, action="store", help='Result dir 2')
-    parser.add_argument('--comparecfg', action="store",
+    parser.add_argument('--comparecfg', action="store", required=True,
                         help="Configurations for fine-grained filtering control")
     parser.add_argument('--out', help='Output file path', required=True,
                         action='store')
@@ -941,55 +948,89 @@ short tests, use --comparecfg.
 
     mintime = 0.0
     tolerance = 1
-    if args.comparecfg:
-      comparecfg = json.load(open(args.comparecfg))
-      mintime = comparecfg["minimum-runtime-sec"]
-      tolerance = comparecfg["tolerance"]
-    res1 = readResultJsons(args.dir1)
-    res2 = readResultJsons(args.dir2)
+    comparecfg = json.load(open(args.comparecfg))
+    
+    assert("collect" in comparecfg)
 
-    assert(set(res1.keys()) == set(res2.keys())), \
-           "The list of tests does not match."
+    if comparecfg["collect"] == "exectime":
+      if "minimum-runtime-sec" in comparecfg:
+        mintime = comparecfg["minimum-runtime-sec"]
+      if "tolerance" in comparecfg:
+        tolerance = comparecfg["tolerance"]
+      res1 = readRunningTimes(args.dir1)
+      res2 = readRunningTimes(args.dir2)
 
-    def _median(runs):
-      l = len(runs)
-      return runs[int(l / 2)] if l % 2 == 1 else \
-            (runs[int(l / 2)] + runs[int((l+1) / 2)]) / 2
+      assert(set(res1.keys()) == set(res2.keys())), \
+             "The list of tests does not match."
 
-    def _filter(runs, med):
-      if med == 0.0:
-        return True
-      return (runs[0] >= mintime) and \
-             (max(med - runs[0], runs[-1] - med) / med < tolerance)
+      def _median(runs):
+        l = len(runs)
+        return runs[int(l / 2)] if l % 2 == 1 else \
+              (runs[int(l / 2)] + runs[int((l+1) / 2)]) / 2
 
-    aggregated_result = []
-    trials = None
-    for k in res1.keys():
-      runs1 = res1[k]
-      runs2 = res2[k]
-      assert(len(runs1) == len(runs2))
-      if trials == None:
-        trials = len(runs1)
-      runs1.sort()
-      runs2.sort()
-      med1 = _median(runs1)
-      med2 = _median(runs2)
+      def _filter(runs, med):
+        if med == 0.0:
+          return True
+        return (runs[0] >= mintime) and \
+               (max(med - runs[0], runs[-1] - med) / med < tolerance)
 
-      if not _filter(runs1, med1) or not _filter(runs2, med2):
-        continue
+      aggregated_result = []
+      trials = None
+      for k in res1.keys():
+        runs1 = res1[k]
+        runs2 = res2[k]
+        assert(len(runs1) == len(runs2))
+        if trials == None:
+          trials = len(runs1)
+        runs1.sort()
+        runs2.sort()
+        med1 = _median(runs1)
+        med2 = _median(runs2)
 
-      speedup = 0.0 if med2 == 0.0 else ((med1 - med2) / med2 * 100)
-      aggregated_result.append([k] + runs1 + [med1] + runs2 + [med2] + [speedup])
+        if not _filter(runs1, med1) or not _filter(runs2, med2):
+          continue
 
-    aggregated_result.sort(key=lambda k: k[-1])
-    fhand = open(args.out, 'w')
-    w = csv.writer(fhand)
-    w.writerow(["Name"] + ["Itr%d" % x for x in range(1, trials+1)] +
-               ["Median (sec.)"] + ["Itr%d" % x for x in range(1, trials+1)] +
-               ["Median (sec.)", "Speedup(%)"])
-    for row in aggregated_result:
-      w.writerow(row)
-    fhand.close()
+        speedup = 0.0 if med2 == 0.0 else ((med1 - med2) / med2 * 100)
+        aggregated_result.append([k] + runs1 + [med1] + runs2 + [med2] + [speedup])
+
+      aggregated_result.sort(key=lambda k: k[-1])
+      fhand = open(args.out, 'w')
+      w = csv.writer(fhand)
+      w.writerow(["Name"] + ["Itr%d" % x for x in range(1, trials+1)] +
+                 ["Median (sec.)"] + ["Itr%d" % x for x in range(1, trials+1)] +
+                 ["Median (sec.)", "Speedup(%)"])
+      for row in aggregated_result:
+        w.writerow(row)
+      fhand.close()
+
+    elif comparecfg["collect"] == "objsize":
+      res1 = readObjSizes(args.dir1)
+      res2 = readObjSizes(args.dir2)
+
+      assert(set(res1.keys()) == set(res2.keys())), \
+             "The list of tests does not match."
+
+      aggregated_result = []
+      for k in res1.keys():
+        runs1 = res1[k]
+        runs2 = res2[k]
+        for r in runs1:
+          assert(r == runs1[0])
+        for r in runs2:
+          assert(r == runs2[0])
+
+        r1 = runs1[0]
+        r2 = runs2[0]
+        increase = (r1 / r2 - 1.0) * 100.0
+        aggregated_result.append([k, runs1[0], runs2[0], increase])
+
+      aggregated_result.sort(key=lambda k: k[-1])
+      fhand = open(args.out, 'w')
+      w = csv.writer(fhand)
+      w.writerow(["Name", "size", "size", "increase(%)"])
+      for row in aggregated_result:
+        w.writerow(row)
+      fhand.close()
 
 
   ############################################################
