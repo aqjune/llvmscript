@@ -3,7 +3,7 @@
   "build-threads":1,
   "buildopt":"release",
   "benchmark":"compiletime",
-  "iteration":3,
+  "iteration":1,
   "ramdisk":"/mnt/ramdisk",
   "dropcache":true,
   "disable_aslr":true,

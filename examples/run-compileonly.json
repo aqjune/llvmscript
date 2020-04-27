@@ -1,0 +1,7 @@
+{
+  "threads":1,
+  "build-threads":4,
+  "buildopt":"release",
+  "benchmark":false,
+  "compileonly":true
+}

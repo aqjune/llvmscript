@@ -647,10 +647,16 @@ Type 'python3 run.py <command> help' to get details
       if hasAndEquals(runcfg, "use_perf", True):
         checkPerf()
         cmakeopt = cmakeopt + ["-DTEST_SUITE_USE_PERF=ON"]
-      
+
       if runcfg["benchmark"] == "compiletime":
         cmakeopt = cmakeopt + ["-DTEST_SUITE_COLLECT_COMPILE_TIME=ON",
                                "-DTEST_SUITE_RUN_BENCHMARKS=0"]
+
+      elif hasAndEquals(runcfg, "compileonly", True):
+        assert False, "compileonly is set!"
+
+    elif hasAndEquals(runcfg, "compileonly", True):
+      cmakeopt = cmakeopt + ["-DTEST_SUITE_RUN_BENCHMARKS=0"]
 
     cmakeopt.append(testcfg["test-suite-dir"])
 
