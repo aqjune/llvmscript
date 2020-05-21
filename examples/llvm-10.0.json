@@ -1,0 +1,22 @@
+{
+  "src":"./llvm-project-10.0",
+  "repo":"https://github.com/llvm/llvm-project.git",
+  "branch":"release/10.x",
+  "builds":{
+    "release":{
+      "path":"./llvm-10.0-release",
+      "projects":"llvm;clang;libcxx;libcxxabi",
+      "sharedlib":true
+    },
+    "relassert":{
+      "path":"./llvm-10.0-releaseassert",
+      "projects":"llvm;clang;libcxx;libcxxabi",
+      "sharedlib":true
+    },
+    "debug":{
+      "path":"./llvm-10.0-debug",
+      "projects":"llvm;clang;libcxx;libcxxabi",
+      "sharedlib":true
+    }
+  }
+}
