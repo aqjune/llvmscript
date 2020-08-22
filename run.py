@@ -225,16 +225,36 @@ def readJsonResults(path, key):
     if not fs.endswith(".json"):
       continue
     js = json.load(open(os.path.join(path, fs)))
-    for t in js["tests"]:
-      if key not in t["metrics"]:
-        continue
-      n = t["name"]
-      v = t["metrics"][key]
 
-      if n not in res:
-        res[n] = [v]
-      else:
-        res[n].append(v)
+    if "tests" in js:
+      # test-suite was run with cmake
+      for t in js["tests"]:
+        if key not in t["metrics"]:
+          continue
+        n = t["name"]
+        v = t["metrics"][key]
+
+        if n not in res:
+          res[n] = [v]
+        else:
+          res[n].append(v)
+    else:
+      for t in js["Tests"]:
+        # test-suite was run with lnt script
+        assert "Name" in t
+        assert "Data" in t
+        if key == "size":
+          assert False, "Unsupported key"
+
+        n = t["Name"]
+        if not n.endswith(".exec"):
+          continue
+        n = n[:-len(".exec")]
+        assert len(t["Data"]) == 1
+        if n not in res:
+          res[n] = [t["Data"][0]]
+        else:
+          res[n].append(t["Data"][0])
   return res
 
 
@@ -261,7 +281,7 @@ Commands:
   lnt       Run test-suite using lnt
   spec      Run SPEC benchmark
   diff      Compile test-suite with different clangs and compare assembly files
-  compare   Compare performance results of test-suites
+  compare   Compare performance results of test-suite
   instcount Get statistics of the number of LLVM assembly instructions
   filter    Filter test-suite result with assembly diff
   check     Check wellformedness of config files
