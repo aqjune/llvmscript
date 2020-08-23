@@ -44,6 +44,13 @@ def checkLNTConfigForClone(js, filename=None):
     assert (i in js), errmsg(i, filename)
     assert ("url" in js[i]), errmsg("%s/url" % i, filename)
 
+def checkRunConfig(js, filename=None):
+  assert ("buildopt" in js), errmsg("buildopt", filename)
+  assert (js["buildopt"] in ["debug", "release", "relassert"]), \
+      "Unknown build option: %s%s" % \
+        (js["buildopt"], " in file %s" % filename if filename else "")
+
+
 
 def newParser(cmd, desc=None, llvm=False, llvm2=False, testsuite=False, run=False,
               spec=False, sendmail=False, optionals=[]):
@@ -818,6 +825,8 @@ This runs programs that are not written in C/C++ as well.
     runcfg = json.load(open(args.runcfg))
     runonly = args.runonly if args.runonly else None
 
+    checkRunConfig(runcfg, args.runcfg)
+
     self._runTestSuiteUsingCMake(cfg, testcfg, runcfg, runonly)
 
     if args.mailcfg:
@@ -979,7 +988,7 @@ short tests, use --comparecfg.
     mintime = 0.0
     tolerance = 1
     comparecfg = json.load(open(args.comparecfg))
-    
+
     assert("collect" in comparecfg)
 
     if comparecfg["collect"] == "exectime":
@@ -1088,6 +1097,9 @@ The path of SPEC CPU should be given with --speccfg.
       testcfg = json.load(open(args.testcfg))
       runcfg = json.load(open(args.runcfg))
       speccfg = json.load(open(args.speccfg))
+
+      checkRunConfig(runcfg, args.runcfg)
+
       runonly = "External/SPEC"
       if args.runonly:
         runonly = runonly + "/" + args.runonly
@@ -1098,12 +1110,12 @@ The path of SPEC CPU should be given with --speccfg.
       self._runTestSuiteUsingCMake(cfg, testcfg, runcfg, runonly,
                                    speccfg=speccfg, path_suffix=suffix)
 
+      if args.mailcfg:
+        cfg = json.load(open(args.mailcfg, "r"))
+        sendMail(cfg, "spec", str(args))
+
     else:
       assert False, "Not implemented"
-
-    if args.mailcfg:
-      cfg = json.load(open(args.mailcfg, "r"))
-      sendMail(cfg, "spec", str(args))
 
 
 
@@ -1120,8 +1132,9 @@ The path of SPEC CPU should be given with --speccfg.
     testcfg = json.load(open(args.testcfg))
     runcfg = json.load(open(args.runcfg))
 
+    checkRunConfig(runcfg, args.runcfg)
+
     buildopt = runcfg["buildopt"]
-    assert(buildopt == "relassert" or buildopt == "release" or buildopt == "debug")
     clangdir = cfg["builds"][buildopt]["path"]
 
     cmds = [testcfg["virtualenv-dir"] + "/bin/lnt",
