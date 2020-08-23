@@ -9,4 +9,7 @@
   "disable_aslr":true,
   "set_scaling_governor":true,
   "use_perf":true,
+  "use_new_pass_manager":false,
+  "cflags":[],
+  "cxxflags":[],
 }

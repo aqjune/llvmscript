@@ -635,6 +635,16 @@ Type 'python3 run.py <command> help' to get details
     if "libcxx" in cfg["repo"]:
       cxxflags = cxxflags + " -stdlib=libc++"
 
+    if "cflags" in runcfg:
+      cflags = " ".join(runcfg["cflags"])
+
+    if "cxxflags" in runcfg:
+      cxxflags = " ".join(runcfg["cxxflags"])
+
+    if hasAndEquals(runcfg, "use_new_pass_manager", True):
+      cflags = cflags + " -fexperimental-new-pass-manager"
+      cxxflags = cxxflags + " -fexperimental-new-pass-manager"
+
     if len(cflags) > 0:
       cmakeopt = cmakeopt + ["-DCMAKE_C_FLAGS=%s" % cflags]
     if len(cxxflags) > 0:
@@ -670,7 +680,7 @@ Type 'python3 run.py <command> help' to get details
         exit(1)
       else:
         cmakeopt = cmakeopt + ["-DTEST_SUITE_RUN_UNDER=taskset -c 1"]
-      
+
       if hasAndEquals(runcfg, "use_perf", True):
         checkPerf()
         cmakeopt = cmakeopt + ["-DTEST_SUITE_USE_PERF=ON"]
@@ -1137,8 +1147,23 @@ The path of SPEC CPU should be given with --speccfg.
       cmds = cmds + ["--threads", str(runcfg["threads"])]
     if "build-threads" in runcfg:
       cmds = cmds + ["--build-threads", str(runcfg["build-threads"])]
+
+    cflags = ""
     if hasAndEquals(runcfg, "lto", True):
-      cmds = cmds + ["--cflag=\"-flto\""]
+      cflags = cflags + " -flto"
+
+    if "cflags" in runcfg:
+      cflags = " ".join(runcfg["cflags"])
+
+    if "cxxflags" in runcfg:
+      if "cflags" in runcfg and runcfg["cflags"] != runcfg["cxxflags"]:
+        print("Warning: cxxflags is not used when running test-suite with lnt "
+              "script")
+
+    if hasAndEquals(runcfg, "use_new_pass_manager", True):
+      cflags = cflags + " -fexperimental-new-pass-manager"
+
+    cmds = cmds + ["--cflag=" + cflags]
 
     print(cmds)
 
