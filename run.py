@@ -624,7 +624,7 @@ Type 'python3 run.py <command> help' to get details
       # Set LD_LIBRARY_PATH
       os.putenv("LD_LIBRARY_PATH", "%s/lib" % llvmdir)
 
-    cmakecache = "Release.cmake"
+    cmakecache = "ReleaseNoLTO.cmake"
     if hasAndEquals(runcfg, "lto", True):
       cmakecache = "ReleaseLTO.cmake"
 
@@ -1152,7 +1152,7 @@ The path of SPEC CPU should be given with --speccfg.
                      "--make-param", "\"RUNUNDER=taskset -c 1\""]
 
       if "iteration" in runcfg:
-        cmds = cmds + ["--multisample", runcfg["iteration"]]
+        cmds = cmds + ["--multisample", str(runcfg["iteration"])]
     elif runcfg["benchmark"] == "compiletime":
       assert(False), "Measuring compile-time is not supported in LNT"
 
