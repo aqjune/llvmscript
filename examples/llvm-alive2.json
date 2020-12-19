@@ -1,0 +1,15 @@
+{
+  "src":"./my-llvm-project",
+  "repo":"git@github.com:llvm/llvm-project.git",
+  "name":"my-llvm-trunk",
+  "branch":"master",
+  "builds":{
+    "relassert":{
+      "path":"./my-llvm-releaseassert",
+      "projects":"llvm;clang",
+      "sharedlib":true,
+      "eh":true,
+      "rtti":true
+    }
+  }
+}

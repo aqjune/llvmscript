@@ -418,6 +418,12 @@ Type 'python3 run.py <command> help' to get details
     if hasAndEquals(options, "sharedlib", True):
       cmd.append("-DBUILD_SHARED_LIBS=1")
 
+    if hasAndEquals(options, "rtti", True):
+      cmd.append("-DLLVM_ENABLE_RTTI=ON")
+
+    if hasAndEquals(options, "eh", True):
+      cmd.append("-DLLVM_ENABLE_EH=ON")
+
     if hasAndEquals(options, "bindings", True):
       cmd.append("-DLLVM_ENABLE_BINDINGS=ON")
     else:
