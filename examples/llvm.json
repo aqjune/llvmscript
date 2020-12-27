@@ -2,7 +2,7 @@
   "src":"./my-llvm-project",
   "repo":"git@github.com:llvm/llvm-project.git",
   "name":"my-llvm-trunk",
-  "branch":"master",
+  "branch":"main",
   "builds":{
     "release":{
       "path":"./my-llvm-release",
