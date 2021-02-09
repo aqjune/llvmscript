@@ -1,6 +1,6 @@
 # llvmscript
 
-One-for-all python script for running experiment with LLVM
+One-for-all python script for running LLVM experiment.
 
 Recommended environment: Ubuntu
 
