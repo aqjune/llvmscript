@@ -658,10 +658,6 @@ Type 'python3 run.py <command> help' to get details
     if "cxxflags" in runcfg:
       cxxflags = " ".join(runcfg["cxxflags"])
 
-    if hasAndEquals(runcfg, "use_new_pass_manager", True):
-      cflags = cflags + " -fexperimental-new-pass-manager"
-      cxxflags = cxxflags + " -fexperimental-new-pass-manager"
-
     if len(cflags) > 0:
       cmakeopt = cmakeopt + ["-DCMAKE_C_FLAGS=%s" % cflags]
     if len(cxxflags) > 0:
@@ -1182,9 +1178,6 @@ The path of SPEC CPU should be given with --speccfg.
       if "cflags" in runcfg and runcfg["cflags"] != runcfg["cxxflags"]:
         print("Warning: cxxflags is not used when running test-suite with lnt "
               "script")
-
-    if hasAndEquals(runcfg, "use_new_pass_manager", True):
-      cflags = cflags + " -fexperimental-new-pass-manager"
 
     cmds = cmds + ["--cflag=" + cflags]
 
