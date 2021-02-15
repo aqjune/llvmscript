@@ -434,6 +434,10 @@ Type 'python3 run.py <command> help' to get details
     else:
       cmd.append("-DLLVM_ENABLE_Z3_SOLVER=OFF")
 
+    if "parallel-link-jobs" in options:
+      jobs = str(options["parallel-link-jobs"])
+      cmd.append("-DLLVM_PARALLEL_LINK_JOBS=" + jobs)
+
     projs = cfg["builds"][args.type]["projects"].split(";")
     if hasAndEquals(options, "use-lld", True):
       assert("lld" in projs), "lld should be listed at projects"

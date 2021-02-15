@@ -1,7 +1,7 @@
 {
   "src":"./my-llvm-project",
   "repo":"git@github.com:llvm/llvm-project.git",
-  "name":"my-llvm-trunk-with-lld",
+  "name":"my-llvm-trunk-smallmemusage",
   "branch":"main",
   "builds":{
     "release":{
@@ -14,12 +14,14 @@
       "path":"./my-llvm-releaseassert",
       "projects":"llvm;clang;libcxx;libcxxabi;compiler-rt;lld",
       "use-lld":true,
-      "sharedlib":true
+      "sharedlib":true,
+      "parallel-link-jobs":1
     },
     "debug":{
       "path":"./my-llvm-debug",
       "projects":"llvm",
-      "sharedlib":true
+      "sharedlib":true,
+      "parallel-link-jobs":1
     }
   }
 }
