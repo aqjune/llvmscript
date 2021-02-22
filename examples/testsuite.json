@@ -4,10 +4,10 @@
   "virtualenv-dir":"~/my-env",
   "lnt":{
       "url":"git@github.com:llvm/llvm-lnt.git",
-      "branch":"master"
+      "branch":"main"
   },
   "test-suite":{
     "url":"git@github.com:llvm/llvm-test-suite.git",
-    "branch":"master"
+    "branch":"main"
   }
 }
