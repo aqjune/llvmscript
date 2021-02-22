@@ -101,22 +101,23 @@ def hasAndEquals(d, key, val):
 # branch can be None.
 # depth can be None or -1 (meaning that it is infinite)
 def startGitClone(repo, dest, branch, depth):
+  print("repo: " + repo)
+  print("dest: " + dest)
   try:
-    print("repo: " + repo)
-    print("dest: " + dest)
     os.makedirs(dest)
-    cmds = ["git", "clone", repo, dest]
-    if branch != None:
-      cmds = cmds + ["--branch", branch]
-    if depth != None and depth != -1:
-      cmds = cmds + ["--depth", str(depth)]
+  except FileExistsError:
+    print ("Directory '{0}' already exists.. continuing".format(dest))
+    return None
 
-    p = Popen(cmds)
-    assert(p != None)
-    return p
-  except OSError as e:
-    print ("Cannot create directory '{0}'.".format(dest))
-    exit(1)
+  cmds = ["git", "clone", repo, dest]
+  if branch != None:
+    cmds = cmds + ["--branch", branch]
+  if depth != None and depth != -1:
+    cmds = cmds + ["--depth", str(depth)]
+
+  p = Popen(cmds)
+  assert(p != None)
+  return p
 
 # Send a mail.
 def sendMail(mailcfg, title, contents):
@@ -364,7 +365,8 @@ Type 'python3 run.py <command> help' to get details
       return startGitClone(repo, dest, branch, depth)
 
     p = _callGitClone(cfg)
-    p.wait()
+    if p:
+      p.wait()
 
     if args.mailcfg:
       cfg = json.load(open(args.mailcfg, "r"))
@@ -500,7 +502,8 @@ Type 'python3 run.py <command> help' to get details
     pipes.append(_callGitClone(cfg, "lnt"))
     pipes.append(_callGitClone(cfg, "test-suite"))
     for p in pipes:
-      p.wait()
+      if p:
+        p.wait()
 
     # Now, create virtualenv.
     venv_dir = cfg["virtualenv-dir"]
