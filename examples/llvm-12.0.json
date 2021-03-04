@@ -1,0 +1,24 @@
+{
+  "src":"./llvm-project-12.0",
+  "repo":"https://github.com/llvm/llvm-project.git",
+  "branch":"release/12.x",
+  "builds":{
+    "release":{
+      "path":"./llvm-12.0-release",
+      "projects":"llvm;clang;libcxx;libcxxabi;compiler-rt",
+      "sharedlib":true
+    },
+    "relassert":{
+      "path":"./llvm-12.0-releaseassert",
+      "projects":"llvm;clang;libcxx;libcxxabi;compiler-rt",
+      "sharedlib":true,
+      "parallel-link-jobs":1
+    },
+    "debug":{
+      "path":"./llvm-12.0-debug",
+      "projects":"llvm;clang;libcxx;libcxxabi;compiler-rt",
+      "sharedlib":true,
+      "parallel-link-jobs":1
+    }
+  }
+}
