@@ -31,6 +31,9 @@ apt-get install bison tclsh python3 python3-pip cpuset linux-tools-common \
                 linux-tools-generic
 pip3 install --upgrade pip3
 pip3 install virtualenv
+
+# Manjaro:
+pacman -Sy tcl python-pip
 ```
 
 
