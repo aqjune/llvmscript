@@ -80,6 +80,8 @@ Run test-suite with `cmake`:
 python3 run.py testsuite --cfg examples/llvm.json --testcfg examples/testsuite.json --runcfg examples/run.json
 ```
 
+If you see `fatal error: 'sys/sysctl.h'`, please follow the solution described at https://bugs.llvm.org/show_bug.cgi?id=48568 .
+
 Run test-suite with LLVM Nightly Tests script:
 ```
 python3 run.py lnt --cfg examples/llvm.json --testcfg examples/testsuite.json --runcfg examples/run.json
