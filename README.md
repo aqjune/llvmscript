@@ -16,7 +16,7 @@ Recommended environment: Ubuntu
 apt update
 apt install git cmake ninja-build g++ python3-distutils zlib1g-dev libtinfo-dev libxml2-dev
 
-# macOS:
+# macOS on apple silicon chips (M1, ...):
 brew install git cmake ninja gcc python3 zlib libxml2
 xcode-select --install
 export LIBRARY_PATH="$LIBRARY_PATH:/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib"
