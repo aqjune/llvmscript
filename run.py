@@ -910,6 +910,8 @@ The list of different assembly files is printed at the file specified by --out.
       testpath1 = self._getTestSuiteBuildPath(cfg1, testcfg, runcfg)
       testpath2 = self._getTestSuiteBuildPath(cfg2, testcfg, runcfg)
 
+      assert(testpath1 != testpath2), "Build output paths are identical (%s)" % testpath1
+
       runonly = None
       if args.runonly:
         runonly = args.runonly
