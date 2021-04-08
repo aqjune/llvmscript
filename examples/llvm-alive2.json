@@ -1,11 +1,11 @@
 {
-  "src":"./my-llvm-project",
+  "src":"./my-llvm-project-alive2",
   "repo":"git@github.com:llvm/llvm-project.git",
   "name":"my-llvm-trunk",
   "branch":"main",
   "builds":{
     "relassert":{
-      "path":"./my-llvm-releaseassert",
+      "path":"./my-llvm-alive2-releaseassert",
       "projects":"llvm;clang",
       "sharedlib":true,
       "eh":true,
