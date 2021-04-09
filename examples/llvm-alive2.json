@@ -1,6 +1,6 @@
 {
   "src":"./my-llvm-project-alive2",
-  "repo":"git@github.com:llvm/llvm-project.git",
+  "repo":"https://github.com/llvm/llvm-project.git",
   "name":"my-llvm-trunk",
   "branch":"main",
   "builds":{
