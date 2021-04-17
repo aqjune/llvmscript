@@ -108,6 +108,8 @@ python3 run.py spec --cfg examples/llvm.json --testcfg examples/testsuite.json -
 python3 run.py compare --dir1 testsuite-result-1/ --dir2 testsuite-result-2/ --out table.csv --comparecfg examples/compare.json
 ```
 
+A handy tool: `diffutil.py asm <dir1> <dir2> --out difflist.txt`
+
 ### 3. Commands for Analyzing Experimental Results
 
 Compile test-suite with llvm and llvm2, compares assembly outputs, prints the results (one assembly file per one line) to result.txt
