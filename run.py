@@ -17,7 +17,7 @@ import subprocess
 import sys
 import uuid
 from subprocess import Popen
-import diffutil
+from diffutil import *
 
 
 errmsg = lambda attrname, filename: "Attribute %s does not exist%s" % \

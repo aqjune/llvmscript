@@ -60,6 +60,24 @@ def diffDirs(path1, path2, emitasm, outf):
               for dp, dn, filenames in os.walk(path2)
               for f in filenames if os.path.splitext(f)[-1] == ext]
   # The list of files should be same
+  set1 = set(result1)
+  set2 = set(result2)
+  if set1 != set2:
+    diff12 = set1.difference(set2)
+    if len(diff12) != 0:
+      print("Warning: only in %s (%d):" % (path1, len(diff12)))
+      for p in diff12:
+        print("\t%s" % p)
+
+    diff21 = set2.difference(set1)
+    if len(diff21) != 0:
+      print("Warning: only in %s (%d):" % (path2, len(diff21)))
+      for p in diff21:
+        print("\t%s" % p)
+
+    result1 = list(set1 - diff12)
+    result2 = list(set2 - diff21)
+
   assert(set(result1) == set(result2))
   print("Total %d %s pairs found" % (len(result1), ext))
   # TODO: relate 'tests' variable with results
