@@ -98,7 +98,7 @@ python3 run.py lnt --cfg examples/llvm.json --testcfg examples/testsuite.json --
 **Run SPEC CINT2017rate**
 ```
 python3 run.py spec --cfg examples/llvm.json --testcfg examples/testsuite.json --runcfg examples/run-spec.json --speccfg examples/spec.json --testsuite --runonly CINT2017rate
-# CINT2017rate, CFP2017rate, CINT2017speed, CFP2017speed
+# CINT2017rate, CFP2017rate, CINT2017speed, CFP2017speed ; one dir only
 ```
 
 **Compare the results**
