@@ -77,7 +77,7 @@ pacman -Sy tcl python-pip
 ```
 
 To use perf, check whether the value of `/proc/sys/kernel/perf_event_paranoid` is 0 or -1.
-If it is higher than 0, update `/etc/sysctl.conf` by adding `kernel.perf_event_paranoid=-1`.
+If it is higher than 0, update `/etc/sysctl.conf` by adding `kernel.perf_event_paranoid=-1`, and run `sudo sysctl --system` to reload the value.
 
 ### 2. Clone & Run TestSuite
 
