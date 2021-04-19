@@ -593,6 +593,7 @@ Type 'python3 run.py <command> help' to get details
 
     cmakecache = "ReleaseNoLTO.cmake"
     if hasAndEquals(runcfg, "lto", True):
+      assert(hasAndEquals(cfg["builds"][runcfg["buildopt"]], "use-lld", True)), "use-lld should be set to true"
       cmakecache = "ReleaseLTO.cmake"
 
     os.makedirs(testpath)
