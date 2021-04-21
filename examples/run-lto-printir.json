@@ -1,0 +1,8 @@
+{
+  "threads":12,
+  "build-threads":12,
+  "buildopt":"relassert",
+  "benchmark":false,
+  "lto":true,
+  "ldflags":["-Xlinker", "-mllvm", "-Xlinker", "-print-lsr-output"]
+}

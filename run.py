@@ -606,20 +606,24 @@ Type 'python3 run.py <command> help' to get details
 
     cflags = ""
     cxxflags = ""
+    ldflags = ""
 
     if "libcxx" in cfg["repo"]:
       cxxflags = cxxflags + " -stdlib=libc++"
 
     if "cflags" in runcfg:
       cflags = " ".join(runcfg["cflags"])
-
     if "cxxflags" in runcfg:
       cxxflags = " ".join(runcfg["cxxflags"])
+    if "ldflags" in runcfg:
+      ldflags = " ".join(runcfg["ldflags"])
 
     if len(cflags) > 0:
       cmakeopt = cmakeopt + ["-DCMAKE_C_FLAGS=%s" % cflags]
     if len(cxxflags) > 0:
       cmakeopt = cmakeopt + ["-DCMAKE_CXX_FLAGS=%s" % cxxflags]
+    if len(ldflags) > 0:
+      cmakeopt = cmakeopt + ["-DCMAKE_EXE_LINKER_FLAGS=%s" % ldflags]
 
     if runonly:
       subdir = runonly
