@@ -42,6 +42,9 @@ python3 run.py clone --cfg examples/llvm.json
 # NOTE: if it aborts due to insufficient memory space, please re-try with
 #       smaller number of cores (it will restart compiling from the last status)
 python3 run.py build --cfg examples/llvm.json --type <release/relassert/debug> --core <# of cores to use>
+
+# If you want to set install-prefix, please add --install-prefix=<path>.
+# Run `cmake --build . --target install` to install
 ```
 
 This will create binaries at the `path/bin` where `path` is the attribute at `llvm.json`.
