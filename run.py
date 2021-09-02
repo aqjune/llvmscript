@@ -429,8 +429,8 @@ Type 'python3 run.py <command> help' to get details
     p.wait()
 
     if "install-prefix" in options:
-      args = ["ninja", "install"]
-      p = Popen(args)
+      cmdargs = ["ninja", "install"]
+      p = Popen(cmdargs)
       p.wait()
 
     if args.mailcfg:
