@@ -338,9 +338,6 @@ Type 'python3 run.py <command> help' to get details
     parser.add_argument('--core', help='# of cores to use', nargs='?', const=1, type=int)
     parser.add_argument('--target', help='targets, separated by comma (ex: opt,clang,llvm-as)',
                         action='store')
-    parser.add_argument('--install-prefix',
-                        help='install prefix (used for custom cmake install only)',
-                        action='store')
     args = parser.parse_args(sys.argv[2:])
 
     cfgpath = args.cfg
@@ -383,6 +380,12 @@ Type 'python3 run.py <command> help' to get details
     if hasAndEquals(options, "eh", True):
       cmd.append("-DLLVM_ENABLE_EH=ON")
 
+    if "install-prefix" in options:
+      cmd.append("-DCMAKE_INSTALL_PREFIX=%s" % options["install-prefix"])
+
+    if hasAndEquals(options, "install-utils", True):
+      cmd.append("-DLLVM_INSTALL_UTILS=ON")
+
     if hasAndEquals(options, "bindings", True):
       cmd.append("-DLLVM_ENABLE_BINDINGS=ON")
     else:
@@ -407,9 +410,6 @@ Type 'python3 run.py <command> help' to get details
       cmd.append("-DLLVM_TOOL_CLANG_TOOLS_EXTRA_BUILD=On")
       #cmd.append("-DCLANGD_BUILD_XPC=Off") # clangd 8.0 does not compile
 
-    if args.install_prefix:
-      cmd.append("-DCMAKE_INSTALL_PREFIX=%s" % args.install_prefix)
-
     p = Popen(cmd)
     p.wait()
 
@@ -427,6 +427,11 @@ Type 'python3 run.py <command> help' to get details
 
     p = Popen(cmd)
     p.wait()
+
+    if "install-prefix" in options:
+      args = ["ninja", "install"]
+      p = Popen(args)
+      p.wait()
 
     if args.mailcfg:
       os.chdir(prevpath)
