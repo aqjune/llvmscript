@@ -6,7 +6,7 @@
   "builds":{
     "relassert":{
       "path":"./llvm-mlir-releaseassert",
-      "install-prefix":"/llvm-mlir-install",
+      "install-prefix":"./llvm-mlir-install",
       "projects":"mlir",
       "sharedlib":true,
       "eh":true,
