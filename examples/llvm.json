@@ -7,17 +7,23 @@
     "release":{
       "path":"./my-llvm-release",
       "projects":"llvm;clang;libcxx;libcxxabi;compiler-rt",
-      "sharedlib":false
+      "sharedlib":false,
+      "cc":"gcc",
+      "cxx":"g++"
     },
     "relassert":{
       "path":"./my-llvm-releaseassert",
       "projects":"llvm;clang;libcxx;libcxxabi;compiler-rt",
-      "sharedlib":true
+      "sharedlib":true,
+      "cc":"gcc",
+      "cxx":"g++"
     },
     "debug":{
       "path":"./my-llvm-debug",
       "projects":"llvm",
-      "sharedlib":true
+      "sharedlib":true,
+      "cc":"gcc",
+      "cxx":"g++"
     }
   }
 }

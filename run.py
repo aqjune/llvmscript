@@ -374,6 +374,12 @@ Type 'python3 run.py <command> help' to get details
     if hasAndEquals(options, "sharedlib", True):
       cmd.append("-DBUILD_SHARED_LIBS=1")
 
+    if "cc" in options:
+      cmd.append("-DCMAKE_C_COMPILER=%s" % options["cc"])
+
+    if "cxx" in options:
+      cmd.append("-DCMAKE_CXX_COMPILER=%s" % options["cxx"])
+
     if hasAndEquals(options, "rtti", True):
       cmd.append("-DLLVM_ENABLE_RTTI=ON")
 
