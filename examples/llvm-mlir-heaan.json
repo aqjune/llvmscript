@@ -1,0 +1,17 @@
+{
+  "src":"./llvm-project-mlir",
+  "repo":"git@github.com:llvm/llvm-project.git",
+  "name":"llvm-mlir",
+  "branch":"main",
+  "builds":{
+    "relassert":{
+      "path":"./llvm-mlir-releaseassert",
+      "install-prefix":"/llvm-mlir-install",
+      "projects":"mlir;clang;llvm",
+      "sharedlib":true,
+      "eh":true,
+      "rtti":true,
+      "install-utils":true
+    }
+  }
+}
