@@ -380,6 +380,9 @@ Type 'python3 run.py <command> help' to get details
     if "cxx" in options:
       cmd.append("-DCMAKE_CXX_COMPILER=%s" % options["cxx"])
 
+    if hasAndEquals(options, "cuda", True):
+      cmd.append("-DMLIR_ENABLE_CUDA_RUNNER=ON")
+
     if hasAndEquals(options, "rtti", True):
       cmd.append("-DLLVM_ENABLE_RTTI=ON")
 

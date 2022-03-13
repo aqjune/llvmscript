@@ -11,7 +11,8 @@
       "sharedlib":true,
       "eh":true,
       "rtti":true,
-      "install-utils":true
+      "install-utils":true,
+      "cuda":true
     }
   }
 }
