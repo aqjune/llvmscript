@@ -12,7 +12,8 @@
       "eh":true,
       "rtti":true,
       "install-utils":true,
-      "cuda":true
+      "cuda":true,
+      "cuda-compiler":"/usr/local/cuda/bin/nvcc"
     }
   }
 }
