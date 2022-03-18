@@ -384,7 +384,7 @@ Type 'python3 run.py <command> help' to get details
       cmd.append("-DMLIR_ENABLE_CUDA_RUNNER=ON")
 
     if "cuda-compiler" in options:
-      cmd.append("-DCMAKE_CUDA_COMPILER=%s" % options["cuda-compiler"]
+      cmd.append("-DCMAKE_CUDA_COMPILER=%s" % options["cuda-compiler"])
 
     if hasAndEquals(options, "rtti", True):
       cmd.append("-DLLVM_ENABLE_RTTI=ON")
