@@ -363,7 +363,6 @@ Type 'python3 run.py <command> help' to get details
         exit(1)
 
     cmd = ["cmake", "-GNinja", os.path.join(os.path.abspath(cfg["src"]), "llvm")]
-    os.chdir(abspath)
 
     if args.type == "release":
       cmd.append("-DCMAKE_BUILD_TYPE=Release")
@@ -433,6 +432,7 @@ Type 'python3 run.py <command> help' to get details
         print(s)
       return
 
+    os.chdir(abspath)
     p = Popen(cmd)
     p.wait()
 
