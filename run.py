@@ -338,6 +338,7 @@ Type 'python3 run.py <command> help' to get details
     parser.add_argument('--core', help='# of cores to use', nargs='?', const=1, type=int)
     parser.add_argument('--target', help='targets, separated by comma (ex: opt,clang,llvm-as)',
                         action='store')
+    parser.add_argument('--dry', help='Dry-run', action='store_true')
     args = parser.parse_args(sys.argv[2:])
 
     cfgpath = args.cfg
@@ -421,6 +422,16 @@ Type 'python3 run.py <command> help' to get details
     if "clang-tools-extra" in projs:
       cmd.append("-DLLVM_TOOL_CLANG_TOOLS_EXTRA_BUILD=On")
       #cmd.append("-DCLANGD_BUILD_XPC=Off") # clangd 8.0 does not compile
+
+    if args.dry:
+      # Dry-run
+      print(cmd[0] + " " + cmd[1] + " \\")
+      for i in range(2, len(cmd)):
+        s = "\t" + cmd[i]
+        if i < len(cmd) - 1:
+          s = s + " \\"
+        print(s)
+      return
 
     p = Popen(cmd)
     p.wait()
